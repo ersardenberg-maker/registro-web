@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}Adicionar Nova Sessão{% endblock %}
+
+{% block content %}
+    <h2>Adicionar Nova Sessão</h2>
+    <!-- O 'action' aponta para a mesma página, e o método é 'post' -->
+    <form method="post" class="form-container">
+        <div class="form-group">
+            <!-- O 'for' no label corresponde ao 'id' do input para melhor acessibilidade -->
+            <label for="id_sessao">ID da Sessão: *</label>
+            <!-- 'required' garante que o campo não pode ser enviado vazio -->
+            <!-- 'value' preenche o campo com dados anteriores em caso de erro -->
+            <input type="text" id="id_sessao" name="id_sessao" required value="{{ form_data.get('id_sessao', '') }}">
+        </div>
+        <div class="form-group">
+            <label for="dirigente">Dirigente: *</label>
+            <input type="text" id="dirigente" name="dirigente" required value="{{ form_data.get('dirigente', '') }}">
+        </div>
+        <div class="form-group">
+            <label for="mestre_assistente">Mestre Assistente:</label>
+            <input type="text" id="mestre_assistente" name="mestre_assistente" value="{{ form_data.get('mestre_assistente', '') }}">
+        </div>
+        <div class="form-group">
+            <label for="responsavel_preenchimento">Responsável pelo Preenchimento: *</label>
+            <input type="text" id="responsavel_preenchimento" name="responsavel_preenchimento" required value="{{ form_data.get('responsavel_preenchimento', '') }}">
+        </div>
+        <div class="form-group">
+            <label for="id_vegetal">ID do Vegetal: *</label>
+            <input type="text" id="id_vegetal" name="id_vegetal" required value="{{ form_data.get('id_vegetal', '') }}">
+        </div>
+        <div class="form-group">
+            <label for="qtd_pessoas">Quantidade de Pessoas: *</label>
+            <input type="number" id="qtd_pessoas" name="qtd_pessoas" required min="1" value="{{ form_data.get('qtd_pessoas', '') }}">
+        </div>
+        <div class="form-group">
+            <label for="litros_iniciais">Litros Iniciais (ex: 5.0): *</label>
+            <input type="number" id="litros_iniciais" name="litros_iniciais" required step="0.1" value="{{ form_data.get('litros_iniciais', '') }}">
+        </div>
+        <div class="form-group">
+            <label for="litros_finais">Litros Finais (ex: 1.5): *</label>
+            <input type="number" id="litros_finais" name="litros_finais" required step="0.1" value="{{ form_data.get('litros_finais', '') }}">
+        </div>
+        <div class="form-group">
+            <!-- Botão explicitamente do tipo 'submit' para enviar o formulário -->
+            <button type="submit">Salvar Sessão</button>
+        </div>
+    </form>
+{% endblock %}

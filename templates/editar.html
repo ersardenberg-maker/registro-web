@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Sessão{% endblock %}
+
+{% block content %}
+    <h2>Editar Sessão</h2>
+    <!-- O 'action' aponta para a rota de edição com o ID específico -->
+    <form action="{{ url_for('editar', id_unico=id_unico) }}" method="post" class="form-container">
+        <div class="form-group">
+            <label for="data_sessao">Data da Sessão:</label>
+            <!-- O campo de data vem preenchido com o valor existente -->
+            <input type="text" id="data_sessao" name="data_sessao" required value="{{ sessao['Data da Sessão'] }}">
+        </div>
+        <div class="form-group">
+            <label for="id_sessao">ID da Sessão:</label>
+            <input type="text" id="id_sessao" name="id_sessao" required value="{{ sessao['ID da Sessão'] }}">
+        </div>
+        <div class="form-group">
+            <label for="dirigente">Dirigente:</label>
+            <input type="text" id="dirigente" name="dirigente" required value="{{ sessao['Dirigente'] }}">
+        </div>
+        <div class="form-group">
+            <label for="mestre_assistente">Mestre Assistente:</label>
+            <input type="text" id="mestre_assistente" name="mestre_assistente" value="{{ sessao['Mestre Assistente'] }}">
+        </div>
+        <div class="form-group">
+            <label for="responsavel_preenchimento">Responsável pelo Preenchimento:</label>
+            <input type="text" id="responsavel_preenchimento" name="responsavel_preenchimento" required value="{{ sessao['Responsável Preenchimento'] }}">
+        </div>
+        <div class="form-group">
+            <label for="id_vegetal">ID do Vegetal:</label>
+            <input type="text" id="id_vegetal" name="id_vegetal" required value="{{ sessao['ID do Vegetal'] }}">
+        </div>
+        <div class="form-group">
+            <label for="qtd_pessoas">Quantidade de Pessoas:</label>
+            <input type="number" id="qtd_pessoas" name="qtd_pessoas" required min="1" value="{{ sessao['Qtd. Pessoas'] }}">
+        </div>
+        <div class="form-group">
+            <label for="litros_iniciais">Litros Iniciais:</label>
+            <input type="number" id="litros_iniciais" name="litros_iniciais" required step="0.1" value="{{ sessao['Litros Iniciais'] }}">
+        </div>
+        <div class="form-group">
+            <label for="litros_finais">Litros Finais:</label>
+            <input type="number" id="litros_finais" name="litros_finais" required step="0.1" value="{{ sessao['Litros Finais'] }}">
+        </div>
+        <div class="form-group">
+            <button type="submit">Atualizar Sessão</button>
+        </div>
+    </form>
+{% endblock %}

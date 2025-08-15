@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Histórico de Sessões{% endblock %}
+
+{% block content %}
+    <h2>Histórico de Sessões</h2>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <!-- Itera sobre as chaves do primeiro dicionário para criar os cabeçalhos -->
+                    {% if sessoes and sessoes[0] %}
+                        {% for key in sessoes[0].keys() if key != 'ID Único' %}
+                            <th>{{ key }}</th>
+                        {% endfor %}
+                    {% endif %}
+                    <th>Ações</th> <!-- Nova coluna para os botões -->
+                </tr>
+            </thead>
+            <tbody>
+                {% for sessao in sessoes %}
+                <tr>
+                    {% for key, value in sessao.items() if key != 'ID Único' %}
+                        <td>{{ value }}</td>
+                    {% endfor %}
+                    <td>
+                        <!-- Botão que leva para a página de edição, passando o ID Único -->
+                        <a href="{{ url_for('editar', id_unico=sessao['ID Único']) }}" class="btn btn-edit">Editar</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="12">Nenhum registo encontrado. Adicione uma nova sessão.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}
