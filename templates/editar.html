@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Sessão{% endblock %}
+
+{% block content %}
+    <h2>Editar Sessão</h2>
+    
+    <p class="info-note">
+        <strong>Atenção:</strong> A edição de um registo de sessão irá atualizar as informações no histórico, mas <strong>não irá</strong> reverter ou alterar o consumo no estoque de vegetal.
+    </p>
+
+    <form action="{{ url_for('editar', id=sessao.id) }}" method="post" class="form-container">
+        <div class="form-group">
+            <label for="data_registo">Data do Registo:</label>
+            <input type="text" id="data_registo" name="data_registo" readonly value="{{ sessao.data_registo }}">
+        </div>
+        <div class="form-group">
+            <label for="id_sessao">ID da Sessão:</label>
+            <input type="text" id="id_sessao" name="id_sessao" required value="{{ sessao.id_sessao }}">
+        </div>
+        <div class="form-group">
+            <label for="data_sessao">Data da Sessão: *</label>
+            <input type="date" id="data_sessao" name="data_sessao" required value="{{ sessao.data_sessao_form }}">
+        </div>
+        <div class="form-group">
+            <label for="dirigente">Dirigente:</label>
+            <input type="text" id="dirigente" name="dirigente" required value="{{ sessao.dirigente }}">
+        </div>
+        <div class="form-group">
+            <label for="explanacao">Explanação:</label>
+            <input type="text" id="explanacao" name="explanacao" value="{{ sessao.explanacao }}">
+        </div>
+        <div class="form-group">
+            <label for="leitura_documentos">Leitura dos Documentos:</label>
+            <input type="text" id="leitura_documentos" name="leitura_documentos" value="{{ sessao.leitura_documentos }}">
+        </div>
+        <div class="form-group">
+            <label for="mestre_assistente">Mestre Assistente:</label>
+            <input type="text" id="mestre_assistente" name="mestre_assistente" value="{{ sessao.mestre_assistente }}">
+        </div>
+        <div class="form-group">
+            <label for="responsavel_preenchimento">Responsável pelo Preenchimento:</label>
+            <input type="text" id="responsavel_preenchimento" name="responsavel_preenchimento" required value="{{ sessao.responsavel_preenchimento }}">
+        </div>
+        <div class="form-group">
+            <label for="lotes_utilizados">Lotes Utilizados:</label>
+            <input type="text" id="lotes_utilizados" name="lotes_utilizados" value="{{ sessao.lotes_utilizados }}">
+        </div>
+        <div class="form-group">
+            <label for="qtd_pessoas">Quantidade de Pessoas:</label>
+            <input type="number" id="qtd_pessoas" name="qtd_pessoas" required min="1" value="{{ sessao.qtd_pessoas }}">
+        </div>
+        <div class="form-group">
+            <label for="litros_iniciais">Litros Iniciais:</label>
+            <input type="number" id="litros_iniciais" name="litros_iniciais" required step="0.1" value="{{ sessao.litros_iniciais }}">
+        </div>
+        <div class="form-group">
+            <label for="litros_finais">Litros Finais:</label>
+            <input type="number" id="litros_finais" name="litros_finais" required step="0.1" value="{{ sessao.litros_finais }}">
+        </div>
+        <div class="form-group">
+            <button type="submit">Atualizar Sessão</button>
+        </div>
+    </form>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}Consultas Estatísticas{% endblock %}
+
+{% block content %}
+    <h2>Consultas Estatísticas</h2>
+    <p>Filtre os registos para obter estatísticas. Preencha um ou mais campos.</p>
+
+    <!-- Formulário de Consulta -->
+    <form method="post" class="form-container query-form">
+        <div class="form-group">
+            <label for="dirigente">Nome do Dirigente:</label>
+            <input type="text" id="dirigente" name="dirigente" value="{{ parametros.dirigente if parametros }}">
+        </div>
+        <div class="form-group">
+            <label for="explanacao">Explanação:</label>
+            <input type="text" id="explanacao" name="explanacao" value="{{ parametros.explanacao if parametros }}">
+        </div>
+        <div class="form-group">
+            <label for="leitura_documentos">Leitura dos Documentos:</label>
+            <input type="text" id="leitura_documentos" name="leitura_documentos" value="{{ parametros.leitura_documentos if parametros }}">
+        </div>
+        <div class="form-group">
+            <label for="data_inicio">Data de Início:</label>
+            <input type="date" id="data_inicio" name="data_inicio" value="{{ parametros.data_inicio if parametros }}">
+        </div>
+        <div class="form-group">
+            <label for="data_fim">Data de Fim:</label>
+            <input type="date" id="data_fim" name="data_fim" value="{{ parametros.data_fim if parametros }}">
+        </div>
+        <div class="form-group">
+            <button type="submit">Consultar</button>
+        </div>
+    </form>
+
+    <!-- Área de Resultados -->
+    {% if total is defined %}
+    <div class="results-container">
+        <h3>Resultados da Consulta</h3>
+        <p class="result-summary">
+            Foram encontradas <strong>{{ total }}</strong> sessões para os critérios definidos.
+        </p>
+        
+        {% if resultado %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <!-- Cabeçalhos definidos manualmente -->
+                        <th>Data do Registo</th>
+                        <th>ID da Sessão</th>
+                        <th>Data da Sessão</th>
+                        <th>Dirigente</th>
+                        <th>Explanação</th>
+                        <th>Leitura dos Documentos</th>
+                        <th>Mestre Assistente</th>
+                        <th>Responsável Preenchimento</th>
+                        <th>Qtd. Pessoas</th>
+                        <th>Lotes Utilizados</th>
+                        <th>Litros Iniciais</th>
+                        <th>Litros Finais</th>
+                        <th>Litros Consumidos</th>
+                        <th>Consumo por Pessoa (ml)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sessao in resultado %}
+                    <tr>
+                        <!-- Acesso aos dados como atributos de um objeto -->
+                        <td>{{ sessao.data_registo }}</td>
+                        <td>{{ sessao.id_sessao }}</td>
+                        <td>{{ sessao.data_sessao }}</td>
+                        <td>{{ sessao.dirigente }}</td>
+                        <td>{{ sessao.explanacao }}</td>
+                        <td>{{ sessao.leitura_documentos }}</td>
+                        <td>{{ sessao.mestre_assistente }}</td>
+                        <td>{{ sessao.responsavel_preenchimento }}</td>
+                        <td>{{ sessao.qtd_pessoas }}</td>
+                        <td>{{ sessao.lotes_utilizados }}</td>
+                        <td>{{ sessao.litros_iniciais }}</td>
+                        <td>{{ sessao.litros_finais }}</td>
+                        <td>{{ sessao.litros_consumidos }}</td>
+                        <td>{{ sessao.consumo_por_pessoa_ml }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+{% endblock %}

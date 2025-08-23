@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block title %}Histórico de Sessões{% endblock %}
+
+{% block content %}
+    <h2>Histórico de Sessões</h2>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <!-- Cabeçalhos definidos manualmente para garantir a ordem -->
+                    <th>Data do Registo</th>
+                    <th>ID da Sessão</th>
+                    <th>Data da Sessão</th>
+                    <th>Dirigente</th>
+                    <th>Explanação</th>
+                    <th>Leitura dos Documentos</th>
+                    <th>Mestre Assistente</th>
+                    <th>Responsável Preenchimento</th>
+                    <th>Qtd. Pessoas</th>
+                    <th>Lotes Utilizados</th>
+                    <th>Litros Iniciais</th>
+                    <th>Litros Finais</th>
+                    <th>Litros Consumidos</th>
+                    <th>Consumo por Pessoa (ml)</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sessao in sessoes %}
+                <tr>
+                    <!-- Acesso aos dados como atributos de um objeto -->
+                    <td>{{ sessao.data_registo }}</td>
+                    <td>{{ sessao.id_sessao }}</td>
+                    <td>{{ sessao.data_sessao }}</td>
+                    <td>{{ sessao.dirigente }}</td>
+                    <td>{{ sessao.explanacao }}</td>
+                    <td>{{ sessao.leitura_documentos }}</td>
+                    <td>{{ sessao.mestre_assistente }}</td>
+                    <td>{{ sessao.responsavel_preenchimento }}</td>
+                    <td>{{ sessao.qtd_pessoas }}</td>
+                    <td>{{ sessao.lotes_utilizados }}</td>
+                    <td>{{ sessao.litros_iniciais }}</td>
+                    <td>{{ sessao.litros_finais }}</td>
+                    <td>{{ sessao.litros_consumidos }}</td>
+                    <td>{{ sessao.consumo_por_pessoa_ml }}</td>
+                    <td class="actions-cell">
+                        <!-- Links de ação atualizados para usar sessao.id -->
+                        <a href="{{ url_for('editar', id=sessao.id) }}" class="btn btn-edit">Editar</a>
+                        <form action="{{ url_for('excluir', id=sessao.id) }}" method="post" onsubmit="return confirm('Tem a certeza que deseja excluir este registo? Esta ação não pode ser desfeita.');">
+                            <button type="submit" class="btn btn-delete">Excluir</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="15">Nenhum registo encontrado. Adicione uma nova sessão.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

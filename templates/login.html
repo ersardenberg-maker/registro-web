@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+    <div class="form-container" style="margin-top: 50px;">
+        <h2>Login</h2>
+        <p>Por favor, introduza as suas credenciais para aceder ao sistema.</p>
+        <form method="post">
+            <div class="form-group">
+                <label for="username">Nome de Utilizador:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Palavra-passe:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <div class="form-group">
+                <button type="submit">Entrar</button>
+            </div>
+        </form>
+    </div>
+{% endblock %}

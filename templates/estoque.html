@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}Controlo de Estoque de Vegetal{% endblock %}
+
+{% block content %}
+    <div class="header-with-button">
+        <h2>Estoque de Vegetal</h2>
+        <p class="inventory-total">Total em Estoque: <strong>{{ "%.2f"|format(total_vegetal) }} L</strong></p>
+    </div>
+
+    <!-- Tabela de Estoque -->
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID do Lote</th>
+                    <th>Data de Preparo</th>
+                    <th>Responsável</th>
+                    <th>Litros Iniciais</th>
+                    <th>Litros Atuais</th>
+                    <th>Observações</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lote in lotes_cha %}
+                <tr>
+                    <td>{{ lote.id_lote }}</td>
+                    <td>{{ lote.data_preparo }}</td>
+                    <td>{{ lote.responsavel }}</td>
+                    <td>{{ lote.litros_iniciais }} L</td>
+                    <td class="litros-atuais">{{ lote.litros_atuais }} L</td>
+                    <td>{{ lote.observacoes }}</td>
+                    <td class="actions-cell">
+                        <a href="{{ url_for('editar_lote', id=lote.id) }}" class="btn btn-edit">Editar</a>
+                        <form action="{{ url_for('excluir_lote', id=lote.id) }}" method="post" onsubmit="return confirm('Tem a certeza que deseja excluir este lote? Esta ação não pode ser desfeita.');">
+                            <button type="submit" class="btn btn-delete">Excluir</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7">Nenhum lote encontrado no estoque.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- Formulário para Adicionar Novo Lote -->
+    <h3>Adicionar Novo Lote ao Estoque</h3>
+    <form action="{{ url_for('adicionar_lote') }}" method="post" class="form-container">
+        <div class="form-group">
+            <label for="id_lote">ID do Lote: *</label>
+            <input type="text" id="id_lote" name="id_lote" required>
+        </div>
+        <div class="form-group">
+            <label for="data_preparo">Data de Preparo: *</label>
+            <input type="date" id="data_preparo" name="data_preparo" required>
+        </div>
+        <div class="form-group">
+            <label for="responsavel">Responsável pelo Preparo: *</label>
+            <input type="text" id="responsavel" name="responsavel" required>
+        </div>
+        <div class="form-group">
+            <label for="litros_iniciais">Litros Iniciais: *</label>
+            <input type="number" id="litros_iniciais" name="litros_iniciais" required step="0.1">
+        </div>
+        <div class="form-group">
+            <label for="observacoes">Observações:</label>
+            <input type="text" id="observacoes" name="observacoes">
+        </div>
+        <div class="form-group">
+            <button type="submit">Adicionar Lote</button>
+        </div>
+    </form>
+{% endblock %}
