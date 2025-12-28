@@ -1,23 +1,51 @@
-{% extends 'base.html' %}
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sistema de Registro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-6">
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-10 border border-slate-100">
+        <div class="text-center mb-10">
+            <div class="bg-amber-100 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <!-- Ícone de Cadeado -->
+                <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-black text-slate-800 tracking-tight">Identificação</h1>
+            <p class="text-slate-400 text-sm mt-2 font-medium">Gestão Interna de Vegetal</p>
+        </div>
 
-{% block title %}Login{% endblock %}
+        <!-- Área de Mensagens de Erro/Sucesso (Flash Messages) -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="mb-6 p-4 rounded-xl text-sm font-semibold {{ 'bg-red-50 text-red-600' if category == 'error' else 'bg-blue-50 text-blue-600' }}">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
 
-{% block content %}
-    <div class="form-container" style="margin-top: 50px;">
-        <h2>Login</h2>
-        <p>Por favor, introduza as suas credenciais para aceder ao sistema.</p>
-        <form method="post">
-            <div class="form-group">
-                <label for="username">Nome de Utilizador:</label>
-                <input type="text" id="username" name="username" required>
+        <!-- Formulário de Login -->
+        <form method="POST" class="space-y-6">
+            <div>
+                <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Utilizador</label>
+                <input type="text" name="username" required autofocus class="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all bg-slate-50 focus:bg-white placeholder-slate-300">
             </div>
-            <div class="form-group">
-                <label for="password">Palavra-passe:</label>
-                <input type="password" id="password" name="password" required>
+            <div>
+                <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Palavra-passe</label>
+                <input type="password" name="password" required class="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all bg-slate-50 focus:bg-white placeholder-slate-300">
             </div>
-            <div class="form-group">
-                <button type="submit">Entrar</button>
-            </div>
+            <button type="submit" class="w-full bg-amber-500 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-amber-600 hover:scale-[1.02] active:scale-[0.98] transition-all text-lg">Entrar no Sistema</button>
         </form>
     </div>
-{% endblock %}
+</body>
+</html>

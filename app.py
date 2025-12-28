@@ -1,18 +1,23 @@
 import os
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
 
-# --- CONFIGURAÇÃO DA APLICAÇÃO E EXTENSÕES ---
+# --- CONFIGURAÇÃO DA APLICAÇÃO ---
 app = Flask(__name__)
-app.secret_key = 'uma_chave_secreta_muito_segura_para_login'
+# Em produção, substitua esta chave por uma string aleatória longa e secreta
+app.secret_key = 'chave_secreta_segura_para_sessao_app_final'
 bcrypt = Bcrypt(app)
 
-# --- CONFIGURAÇÃO DO BANCO DE DADOS ---
+# --- CONFIGURAÇÃO DA BASE DE DADOS ---
+# Tenta obter a URL do Render (PostgreSQL). Se não existir, usa SQLite local.
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
+    # Correção necessária para o SQLAlchemy em alguns sistemas de cloud que usam postgres://
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 else:
     basedir = os.path.abspath(os.path.dirname(__file__))
@@ -21,14 +26,15 @@ else:
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-# --- CONFIGURAÇÃO DO FLASK-LOGIN ---
+# --- CONFIGURAÇÃO DE LOGIN ---
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
-login_manager.login_message = "Por favor, faça login para aceder a esta página."
+login_manager.login_message = "Por favor, faça login para aceder ao sistema."
 login_manager.login_message_category = "info"
 
-# --- MODELOS DO BANCO DE DADOS ---
+# --- MODELOS DE DADOS ---
+
 class Utilizador(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
@@ -42,20 +48,24 @@ class Utilizador(UserMixin, db.Model):
 
 class Sessao(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    data_registo = db.Column(db.String(10), nullable=False)
-    id_sessao = db.Column(db.String(100), nullable=False)
+    data_registro = db.Column(db.String(10), nullable=False)
+    sessao = db.Column(db.String(100), nullable=False)
     data_sessao = db.Column(db.String(10), nullable=False)
     dirigente = db.Column(db.String(150), nullable=False)
     explanacao = db.Column(db.String(200))
     leitura_documentos = db.Column(db.String(200))
-    mestre_assistente = db.Column(db.String(150))
     responsavel_preenchimento = db.Column(db.String(150), nullable=False)
     qtd_pessoas = db.Column(db.Integer, nullable=False)
-    lotes_utilizados = db.Column(db.String(300))
+    # Armazena os lotes como string formatada: "ID_LOTE:QTD|ID_LOTE2:QTD"
+    lotes_utilizados = db.Column(db.String(500)) 
     litros_iniciais = db.Column(db.Float, nullable=False)
     litros_finais = db.Column(db.Float, nullable=False)
     litros_consumidos = db.Column(db.Float, nullable=False)
     consumo_por_pessoa_ml = db.Column(db.Float, nullable=False)
+
+    def to_dict(self):
+        """Converte o objeto do banco de dados para um dicionário (JSON)"""
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 class LoteCha(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -66,11 +76,21 @@ class LoteCha(db.Model):
     litros_atuais = db.Column(db.Float, nullable=False)
     observacoes = db.Column(db.String(300))
 
+    def to_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
 @login_manager.user_loader
 def load_user(user_id):
-    return Utilizador.query.get(int(user_id))
+    return db.session.get(Utilizador, int(user_id))
 
-# --- ROTAS DE AUTENTICAÇÃO ---
+# --- ROTAS DE NAVEGAÇÃO E AUTH ---
+
+@app.route('/')
+@login_required
+def index():
+    # Renderiza a interface única (SPA)
+    return render_template('index.html')
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
@@ -84,257 +104,150 @@ def login():
             next_page = request.args.get('next')
             return redirect(next_page or url_for('index'))
         else:
-            flash('Login sem sucesso. Verifique o nome de utilizador e a palavra-passe.', 'error')
+            flash('Login inválido. Verifique o utilizador e a palavra-passe.', 'error')
     return render_template('login.html')
 
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
-    flash('Sessão terminada com sucesso.', 'success')
     return redirect(url_for('login'))
 
-# --- ROTAS DA APLICAÇÃO (PROTEGIDAS) ---
-@app.context_processor
-def inject_now():
-    return {'now': datetime.utcnow()}
+# --- API (ENDPOINTS JSON PARA O FRONT-END) ---
 
-@app.route('/')
+@app.route('/api/dados', methods=['GET'])
 @login_required
-def index():
-    sessoes = Sessao.query.order_by(Sessao.id.desc()).all()
-    return render_template('index.html', sessoes=sessoes)
+def get_dados():
+    """Retorna todos os dados de sessões e stock para preencher a interface."""
+    sessoes = [s.to_dict() for s in Sessao.query.order_by(Sessao.id.desc()).all()]
+    estoque = [l.to_dict() for l in LoteCha.query.order_by(LoteCha.id_lote).all()]
+    return jsonify({'sessoes': sessoes, 'estoque': estoque})
 
-@app.route('/adicionar', methods=['GET', 'POST'])
+@app.route('/api/sessoes', methods=['POST'])
 @login_required
-def adicionar():
-    lotes_cha = LoteCha.query.order_by(LoteCha.id_lote).all()
-    if request.method == 'POST':
-        try:
-            form_data = request.form
-            lotes_utilizados_str = form_data.get('lotes_utilizados_hidden')
-            if not lotes_utilizados_str:
-                flash('Erro: Nenhum lote de vegetal foi adicionado à sessão.', 'error')
-                return render_template('adicionar.html', form_data=form_data, lotes_cha=lotes_cha)
-
-            lotes_processados = []
-            total_retirado_dos_lotes = 0
-            for item in lotes_utilizados_str.split('|'):
-                id_lote, qtd_str = item.split(':')
-                qtd = float(qtd_str)
-                lotes_processados.append({'id': id_lote, 'qtd': qtd})
-                total_retirado_dos_lotes += qtd
-
-            litros_finais_sessao = float(form_data.get('litros_finais'))
-            litros_iniciais_sessao = total_retirado_dos_lotes
-            litros_consumidos = round(litros_iniciais_sessao - litros_finais_sessao, 2)
-            
-            for lote_usado in lotes_processados:
-                lote_inv = LoteCha.query.filter_by(id_lote=lote_usado['id']).first()
-                if not lote_inv:
-                    flash(f"Erro: O lote de vegetal com ID \"{lote_usado['id']}\" não foi encontrado no estoque.", 'error')
-                    return render_template('adicionar.html', form_data=form_data, lotes_cha=lotes_cha)
-                if lote_usado['qtd'] > lote_inv.litros_atuais:
-                    flash(f"Erro: Quantidade retirada ({lote_usado['qtd']}L) do lote {lote_usado['id']} é maior que o estoque atual ({lote_inv.litros_atuais}L).", 'error')
-                    return render_template('adicionar.html', form_data=form_data, lotes_cha=lotes_cha)
-                lote_inv.litros_atuais = round(lote_inv.litros_atuais - lote_usado['qtd'], 2)
-
-            qtd_pessoas = int(form_data.get('qtd_pessoas'))
-            nova_sessao = Sessao(
-                data_registo=datetime.now().strftime('%d/%m/%Y'),
-                id_sessao=form_data.get('id_sessao'),
-                data_sessao=datetime.strptime(form_data.get('data_sessao'), '%Y-%m-%d').strftime('%d/%m/%Y'),
-                dirigente=form_data.get('dirigente'),
-                explanacao=form_data.get('explanacao'),
-                leitura_documentos=form_data.get('leitura_documentos'),
-                mestre_assistente=form_data.get('mestre_assistente'),
-                responsavel_preenchimento=form_data.get('responsavel_preenchimento'),
-                qtd_pessoas=qtd_pessoas,
-                lotes_utilizados=lotes_utilizados_str.replace('|', ' | '),
-                litros_iniciais=litros_iniciais_sessao,
-                litros_finais=litros_finais_sessao,
-                litros_consumidos=litros_consumidos,
-                consumo_por_pessoa_ml=round((litros_consumidos * 1000) / qtd_pessoas, 2) if qtd_pessoas > 0 else 0
-            )
-            db.session.add(nova_sessao)
-            db.session.commit()
-            flash('Sessão registada e estoque atualizado com sucesso!', 'success')
-            return redirect(url_for('index'))
-        except (ValueError, TypeError) as e:
-            db.session.rollback()
-            flash(f'Erro ao processar o formulário. Verifique os campos. Detalhe: {e}', 'error')
-            return render_template('adicionar.html', form_data=request.form, lotes_cha=lotes_cha)
-    
-    return render_template('adicionar.html', form_data={}, lotes_cha=lotes_cha)
-
-@app.route('/estoque')
-@login_required
-def estoque():
-    lotes_cha = LoteCha.query.order_by(LoteCha.id_lote).all()
-    total_vegetal = sum(lote.litros_atuais for lote in lotes_cha)
-    return render_template('estoque.html', lotes_cha=lotes_cha, total_vegetal=total_vegetal)
-
-@app.route('/adicionar_lote', methods=['POST'])
-@login_required
-def adicionar_lote():
+def add_sessao():
+    """Adiciona uma nova sessão, atualiza o stock e gere retornos."""
+    data = request.get_json()
     try:
-        form_data = request.form
-        novo_lote = LoteCha(
-            id_lote=form_data.get('id_lote'),
-            data_preparo=datetime.strptime(form_data.get('data_preparo'), '%Y-%m-%d').strftime('%d/%m/%Y'),
-            responsavel=form_data.get('responsavel'),
-            litros_iniciais=float(form_data.get('litros_iniciais')),
-            litros_atuais=float(form_data.get('litros_iniciais')),
-            observacoes=form_data.get('observacoes')
+        litros_finais = float(data['litros_finais'])
+        
+        # 1. Gestão de Retorno de Vegetal (Criar novo lote se solicitado)
+        if data.get('registrar_retorno') and litros_finais > 0:
+            id_lote_retorno = data['id_lote_retorno'].strip()
+            # Verifica se o ID já existe para evitar erros
+            if LoteCha.query.filter_by(id_lote=id_lote_retorno).first():
+                return jsonify({'success': False, 'message': f'Já existe um lote com o ID "{id_lote_retorno}".'}), 400
+            
+            novo_lote_retorno = LoteCha(
+                id_lote=id_lote_retorno,
+                data_preparo=datetime.now().strftime('%d/%m/%Y'),
+                responsavel="Sistema (Retorno)",
+                litros_iniciais=litros_finais,
+                litros_atuais=litros_finais,
+                observacoes=f"Retorno da sessão: {data['sessao']}"
+            )
+            db.session.add(novo_lote_retorno)
+
+        # 2. Dar baixa no Estoque (Deduzir dos lotes utilizados)
+        for lote_str in data['lotes_utilizados'].split('|'):
+            if not lote_str: continue
+            id_lote, qtd = lote_str.split(':')
+            lote_db = LoteCha.query.filter_by(id_lote=id_lote).first()
+            if lote_db:
+                lote_db.litros_atuais -= float(qtd)
+
+        # 3. Registar a Sessão
+        nova_sessao = Sessao(
+            data_registro=datetime.now().strftime('%d/%m/%Y'),
+            sessao=data['sessao'],
+            data_sessao=datetime.strptime(data['data_sessao'], '%Y-%m-%d').strftime('%d/%m/%Y'),
+            dirigente=data['dirigente'],
+            explanacao=data.get('explanacao', ''),
+            leitura_documentos=data.get('leitura_documentos', ''),
+            responsavel_preenchimento=data['responsavel_preenchimento'],
+            qtd_pessoas=int(data['qtd_pessoas']),
+            lotes_utilizados=data['lotes_utilizados'],
+            litros_iniciais=float(data['litros_iniciais']),
+            litros_finais=litros_finais,
+            litros_consumidos=float(data['litros_consumidos']),
+            consumo_por_pessoa_ml=float(data['consumo_por_pessoa_ml'])
         )
-        db.session.add(novo_lote)
+        db.session.add(nova_sessao)
         db.session.commit()
-        flash('Novo lote adicionado ao estoque com sucesso!', 'success')
+        return jsonify({'success': True, 'message': 'Sessão registada com sucesso!'})
+
     except Exception as e:
         db.session.rollback()
-        flash(f'Erro ao adicionar lote. O ID do Lote já existe ou os dados são inválidos. Detalhe: {e}', 'error')
-    return redirect(url_for('estoque'))
+        return jsonify({'success': False, 'message': f'Erro ao registar: {str(e)}'}), 500
 
-@app.route('/editar_lote/<int:id>', methods=['GET', 'POST'])
+@app.route('/api/sessoes/<int:id>', methods=['DELETE'])
 @login_required
-def editar_lote(id):
-    lote_para_editar = LoteCha.query.get_or_404(id)
-    if request.method == 'POST':
-        try:
-            form_data = request.form
-            lote_para_editar.id_lote = form_data.get('id_lote')
-            lote_para_editar.data_preparo = datetime.strptime(form_data.get('data_preparo'), '%Y-%m-%d').strftime('%d/%m/%Y')
-            lote_para_editar.responsavel = form_data.get('responsavel')
-            lote_para_editar.litros_iniciais = float(form_data.get('litros_iniciais'))
-            lote_para_editar.litros_atuais = float(form_data.get('litros_atuais'))
-            lote_para_editar.observacoes = form_data.get('observacoes')
-            db.session.commit()
-            flash('Lote atualizado com sucesso!', 'success')
-            return redirect(url_for('estoque'))
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Erro ao atualizar. Verifique os campos. Detalhe: {e}', 'error')
-            return render_template('editar_lote.html', lote=lote_para_editar)
+def delete_sessao(id):
+    sessao = db.session.get(Sessao, id)
+    if sessao:
+        db.session.delete(sessao)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Sessão removida.'})
+    return jsonify({'success': False, 'message': 'Sessão não encontrada.'}), 404
 
-    lote_para_editar.data_preparo_form = datetime.strptime(lote_para_editar.data_preparo, '%d/%m/%Y').strftime('%Y-%m-%d')
-    return render_template('editar_lote.html', lote=lote_para_editar)
-
-@app.route('/excluir_lote/<int:id>', methods=['POST'])
+@app.route('/api/estoque', methods=['POST'])
 @login_required
-def excluir_lote(id):
-    lote_para_excluir = LoteCha.query.get_or_404(id)
-    db.session.delete(lote_para_excluir)
-    db.session.commit()
-    flash('Lote excluído com sucesso!', 'success')
-    return redirect(url_for('estoque'))
+def add_lote():
+    data = request.get_json()
+    # Verifica duplicados
+    if LoteCha.query.filter_by(id_lote=data['id_lote']).first():
+        return jsonify({'success': False, 'message': 'ID de Lote já existe.'}), 400
+    try:
+        novo = LoteCha(
+            id_lote=data['id_lote'],
+            data_preparo=datetime.strptime(data['data_preparo'], '%Y-%m-%d').strftime('%d/%m/%Y'),
+            responsavel=data['responsavel'],
+            litros_iniciais=float(data['litros_iniciais']),
+            litros_atuais=float(data['litros_iniciais']),
+            observacoes=data.get('observacoes', '')
+        )
+        db.session.add(novo)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Lote adicionado.'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Erro: {str(e)}'}), 500
 
-@app.route('/editar/<int:id>', methods=['GET', 'POST'])
+@app.route('/api/estoque/<int:id>', methods=['DELETE'])
 @login_required
-def editar(id):
-    sessao_para_editar = Sessao.query.get_or_404(id)
-    if request.method == 'POST':
-        try:
-            form_data = request.form
-            sessao_para_editar.data_registo = form_data.get('data_registo')
-            sessao_para_editar.id_sessao = form_data.get('id_sessao')
-            sessao_para_editar.data_sessao = datetime.strptime(form_data.get('data_sessao'), '%Y-%m-%d').strftime('%d/%m/%Y')
-            sessao_para_editar.dirigente = form_data.get('dirigente')
-            sessao_para_editar.explanacao = form_data.get('explanacao')
-            sessao_para_editar.leitura_documentos = form_data.get('leitura_documentos')
-            sessao_para_editar.mestre_assistente = form_data.get('mestre_assistente')
-            sessao_para_editar.responsavel_preenchimento = form_data.get('responsavel_preenchimento')
-            sessao_para_editar.qtd_pessoas = int(form_data.get('qtd_pessoas'))
-            sessao_para_editar.lotes_utilizados = form_data.get('lotes_utilizados')
-            sessao_para_editar.litros_iniciais = float(form_data.get('litros_iniciais'))
-            sessao_para_editar.litros_finais = float(form_data.get('litros_finais'))
-            sessao_para_editar.litros_consumidos = round(sessao_para_editar.litros_iniciais - sessao_para_editar.litros_finais, 2)
-            sessao_para_editar.consumo_por_pessoa_ml = round((sessao_para_editar.litros_consumidos * 1000) / sessao_para_editar.qtd_pessoas, 2) if sessao_para_editar.qtd_pessoas > 0 else 0
-            
-            db.session.commit()
-            flash('Sessão atualizada com sucesso! (O estoque não foi alterado)', 'success')
-            return redirect(url_for('index'))
-        except (ValueError, TypeError):
-            flash('Erro ao atualizar. Verifique os campos.', 'error')
-            return render_template('editar.html', sessao=sessao_para_editar)
+def delete_lote(id):
+    lote = db.session.get(LoteCha, id)
+    if lote:
+        db.session.delete(lote)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Lote removido.'})
+    return jsonify({'success': False, 'message': 'Lote não encontrado.'}), 404
 
-    sessao_para_editar.data_sessao_form = datetime.strptime(sessao_para_editar.data_sessao, '%d/%m/%Y').strftime('%Y-%m-%d')
-    return render_template('editar.html', sessao=sessao_para_editar)
+# --- COMANDOS DE TERMINAL (CLI) ---
 
-@app.route('/excluir/<int:id>', methods=['POST'])
-@login_required
-def excluir(id):
-    sessao_para_excluir = Sessao.query.get_or_404(id)
-    db.session.delete(sessao_para_excluir)
-    db.session.commit()
-    flash('Registo de sessão excluído com sucesso! (O estoque não foi alterado)', 'success')
-    return redirect(url_for('index'))
-
-@app.route('/consultas', methods=['GET', 'POST'])
-@login_required
-def consultas():
-    if request.method == 'POST':
-        query = Sessao.query
-        dirigente_consulta = request.form.get('dirigente', '').strip()
-        explanacao_consulta = request.form.get('explanacao', '').strip()
-        leitura_consulta = request.form.get('leitura_documentos', '').strip()
-        data_inicio_str = request.form.get('data_inicio')
-        data_fim_str = request.form.get('data_fim')
-
-        if dirigente_consulta:
-            query = query.filter(Sessao.dirigente.ilike(f'%{dirigente_consulta}%'))
-        if explanacao_consulta:
-            query = query.filter(Sessao.explanacao.ilike(f'%{explanacao_consulta}%'))
-        if leitura_consulta:
-            query = query.filter(Sessao.leitura_documentos.ilike(f'%{leitura_consulta}%'))
-        
-        sessoes = query.order_by(Sessao.id.desc()).all()
-        resultado_filtrado = []
-
-        try:
-            data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d') if data_inicio_str else None
-            data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d') if data_fim_str else None
-
-            for sessao in sessoes:
-                data_sessao_obj = datetime.strptime(sessao.data_sessao, '%d/%m/%Y')
-                if (not data_inicio or data_sessao_obj.date() >= data_inicio.date()) and \
-                   (not data_fim or data_sessao_obj.date() <= data_fim.date()):
-                    resultado_filtrado.append(sessao)
-
-            return render_template('consultas.html', 
-                                   resultado=resultado_filtrado, 
-                                   total=len(resultado_filtrado),
-                                   parametros=request.form)
-        except ValueError:
-            flash('Formato de data inválido. Use o seletor de datas.', 'error')
-            return render_template('consultas.html', parametros=request.form)
-
-    return render_template('consultas.html')
-
-# --- COMANDOS DE LINHA DE COMANDOS (CLI) ---
 @app.cli.command("init-db")
-def init_db_command():
-    """Cria as tabelas do banco de dados."""
+def init_db():
+    """Cria as tabelas na base de dados."""
     db.create_all()
-    print("Banco de dados inicializado com sucesso.")
+    print("Base de dados criada/atualizada com sucesso.")
 
 @app.cli.command("create-user")
 def create_user():
-    """Cria um novo utilizador."""
-    username = input("Introduza o nome de utilizador: ")
-    password = input("Introduza a palavra-passe: ")
-    user = Utilizador.query.filter_by(username=username).first()
-    if user:
-        print(f"O utilizador {username} já existe.")
-        return
-    new_user = Utilizador(username=username)
-    new_user.set_password(password)
-    db.session.add(new_user)
-    db.session.commit()
-    print(f"Utilizador {username} criado com sucesso!")
-
-# --- INICIALIZAÇÃO AUTOMÁTICA DO BANCO DE DADOS ---
-with app.app_context():
-    db.create_all()
+    """Cria um novo utilizador via terminal."""
+    u = input("Username: ")
+    p = input("Password: ")
+    with app.app_context():
+        if Utilizador.query.filter_by(username=u).first():
+            print("Erro: Utilizador já existe.")
+            return
+        nu = Utilizador(username=u)
+        nu.set_password(p)
+        db.session.add(nu)
+        db.session.commit()
+    print(f"Utilizador '{u}' criado com sucesso.")
 
 if __name__ == '__main__':
+    # Garante que as tabelas existem ao iniciar (útil para o Render)
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)

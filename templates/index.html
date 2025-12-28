@@ -1,63 +1,461 @@
-{% extends 'base.html' %}
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestão de Sessões</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .tab-active { border-bottom-color: #f59e0b; color: #f59e0b; }
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.5); }
+        .table-responsive { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .toast {
+            position: fixed; top: 20px; right: 20px; padding: 1rem 1.5rem; border-radius: 0.5rem;
+            color: white; z-index: 1000; opacity: 0; transform: translateY(-20px);
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast-success { background-color: #10b981; }
+        .toast-error { background-color: #ef4444; }
+    </style>
+</head>
+<body class="text-slate-700">
 
-{% block title %}Histórico de Sessões{% endblock %}
+    <div id="app" class="max-w-7xl mx-auto p-4 md:p-6">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-6 pb-4 border-b border-slate-200">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Registo de Sessões</h1>
+                <p class="text-slate-500 text-sm">Gestão integrada de sessões e estoque.</p>
+            </div>
+            <div class="text-right">
+                 <span class="text-sm font-medium text-slate-600">Sessão de: <b>{{ current_user.username }}</b></span>
+                 <a href="{{ url_for('logout') }}" class="ml-4 text-sm text-red-500 hover:underline">Sair</a>
+            </div>
+        </header>
 
-{% block content %}
-    <h2>Histórico de Sessões</h2>
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <!-- Cabeçalhos definidos manualmente para garantir a ordem -->
-                    <th>Data do Registo</th>
-                    <th>ID da Sessão</th>
-                    <th>Data da Sessão</th>
-                    <th>Dirigente</th>
-                    <th>Explanação</th>
-                    <th>Leitura dos Documentos</th>
-                    <th>Mestre Assistente</th>
-                    <th>Responsável Preenchimento</th>
-                    <th>Qtd. Pessoas</th>
-                    <th>Lotes Utilizados</th>
-                    <th>Litros Iniciais</th>
-                    <th>Litros Finais</th>
-                    <th>Litros Consumidos</th>
-                    <th>Consumo por Pessoa (ml)</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for sessao in sessoes %}
-                <tr>
-                    <!-- Acesso aos dados como atributos de um objeto -->
-                    <td>{{ sessao.data_registo }}</td>
-                    <td>{{ sessao.id_sessao }}</td>
-                    <td>{{ sessao.data_sessao }}</td>
-                    <td>{{ sessao.dirigente }}</td>
-                    <td>{{ sessao.explanacao }}</td>
-                    <td>{{ sessao.leitura_documentos }}</td>
-                    <td>{{ sessao.mestre_assistente }}</td>
-                    <td>{{ sessao.responsavel_preenchimento }}</td>
-                    <td>{{ sessao.qtd_pessoas }}</td>
-                    <td>{{ sessao.lotes_utilizados }}</td>
-                    <td>{{ sessao.litros_iniciais }}</td>
-                    <td>{{ sessao.litros_finais }}</td>
-                    <td>{{ sessao.litros_consumidos }}</td>
-                    <td>{{ sessao.consumo_por_pessoa_ml }}</td>
-                    <td class="actions-cell">
-                        <!-- Links de ação atualizados para usar sessao.id -->
-                        <a href="{{ url_for('editar', id=sessao.id) }}" class="btn btn-edit">Editar</a>
-                        <form action="{{ url_for('excluir', id=sessao.id) }}" method="post" onsubmit="return confirm('Tem a certeza que deseja excluir este registo? Esta ação não pode ser desfeita.');">
-                            <button type="submit" class="btn btn-delete">Excluir</button>
+        <!-- Menu -->
+        <nav class="mb-8">
+            <ul class="flex border-b border-slate-200 overflow-x-auto whitespace-nowrap">
+                <li class="-mb-px mr-1"><a class="inline-block py-3 px-6 font-semibold border-b-2 cursor-pointer tab-active" data-view="historico">Histórico</a></li>
+                <li class="mr-1"><a class="inline-block py-3 px-6 font-semibold border-b-2 border-transparent hover:text-amber-600 cursor-pointer" data-view="estoque">Estoque</a></li>
+                <li class="mr-1"><a class="inline-block py-3 px-6 font-semibold border-b-2 border-transparent hover:text-amber-600 cursor-pointer" data-view="consultas">Relatórios</a></li>
+            </ul>
+        </nav>
+
+        <main>
+            <!-- VIEW: HISTÓRICO -->
+            <div id="historicoView" class="view-content">
+                <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+                    <h2 class="text-xl font-bold">Listagem de Sessões</h2>
+                    <button id="openAddSessaoBtn" class="bg-amber-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-amber-600 transition shadow-md">+ Nova Sessão</button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="p-4 border-b bg-slate-50">
+                        <input type="text" id="searchMain" placeholder="Filtrar por nome, dirigente, explanação ou leitura..." class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                    <div class="table-responsive">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-100 text-slate-600 uppercase text-xs font-bold">
+                                <tr>
+                                    <th class="px-6 py-4">Sessão</th>
+                                    <th class="px-6 py-4">Data</th>
+                                    <th class="px-6 py-4">Dirigente</th>
+                                    <th class="px-6 py-4">Explanação</th>
+                                    <th class="px-6 py-4">Leitura Doc.</th>
+                                    <th class="px-6 py-4">Consumo (L)</th>
+                                    <th class="px-6 py-4">Por Pessoa</th>
+                                    <th class="px-6 py-4 text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sessoesTableBody" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: ESTOQUE -->
+            <div id="estoqueView" class="view-content hidden">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="md:col-span-2">
+                        <h2 class="text-xl font-bold mb-4">Lotes em Estoque</h2>
+                        <button id="openAddLoteBtn" class="bg-slate-800 text-white py-2 px-6 rounded-lg hover:bg-slate-900 transition shadow-md">+ Entrada de Vegetal</button>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-amber-200 shadow-sm flex flex-col items-center justify-center">
+                        <p class="text-xs font-bold text-amber-600 uppercase tracking-widest">Total Disponível</p>
+                        <p id="totalStockDisplay" class="text-4xl font-black text-slate-800 mt-1">0.00 L</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden table-responsive">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-slate-100 text-slate-600 uppercase text-xs font-bold">
+                            <tr>
+                                <th class="px-6 py-4">ID Lote</th>
+                                <th class="px-6 py-4">Data Prep.</th>
+                                <th class="px-6 py-4">Responsável</th>
+                                <th class="px-6 py-4">Qtd. Inicial</th>
+                                <th class="px-6 py-4">Qtd. Atual</th>
+                                <th class="px-6 py-4 text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="estoqueTableBody" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- VIEW: CONSULTAS -->
+            <div id="consultasView" class="view-content hidden space-y-12">
+                <!-- Relatório de Frequência -->
+                <section>
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-2 h-8 bg-amber-500 rounded-full"></div>
+                        <h2 class="text-xl font-bold">Quantitativo por Dirigente</h2>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <form id="relatorioForm" class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Início</label>
+                                <input type="date" name="data_inicio" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Fim</label>
+                                <input type="date" name="data_fim" class="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                            <div class="flex gap-2">
+                                <button type="button" id="clearRelatorioBtn" class="flex-1 bg-slate-100 py-2 rounded-lg hover:bg-slate-200 transition font-medium">Limpar</button>
+                                <button type="submit" class="flex-[2] bg-amber-500 text-white font-bold py-2 rounded-lg hover:bg-amber-600 transition shadow-md">Gerar Relatório</button>
+                            </div>
                         </form>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="15">Nenhum registo encontrado. Adicione uma nova sessão.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                    </div>
+                    <div id="relatorioResultados" class="hidden mt-8 bg-white rounded-xl border shadow-sm overflow-hidden">
+                        <table class="w-full text-sm">
+                            <thead class="bg-slate-50 border-b">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-slate-500 uppercase text-xs font-bold">Dirigente</th>
+                                    <th class="px-6 py-4 text-right text-slate-500 uppercase text-xs font-bold">Nº de Sessões</th>
+                                </tr>
+                            </thead>
+                            <tbody id="relatorioTableBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Pesquisa Livre -->
+                <section>
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-2 h-8 bg-slate-400 rounded-full"></div>
+                        <h2 class="text-xl font-bold text-slate-600">Pesquisa Avançada</h2>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <form id="avancadaForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <input type="text" name="sessao" placeholder="Nome da Sessão" class="p-2 border rounded-lg outline-none focus:ring-2 focus:ring-slate-400">
+                            <input type="text" name="dirigente" placeholder="Nome do Dirigente" class="p-2 border rounded-lg outline-none focus:ring-2 focus:ring-slate-400">
+                            <input type="text" name="explanacao" placeholder="Tema Explanação" class="p-2 border rounded-lg outline-none focus:ring-2 focus:ring-slate-400">
+                            <input type="text" name="leitura" placeholder="Tema Leitura" class="p-2 border rounded-lg outline-none focus:ring-2 focus:ring-slate-400">
+                            <input type="date" name="data_ini" class="p-2 border rounded-lg text-slate-500 text-sm">
+                            <input type="date" name="data_fim" class="p-2 border rounded-lg text-slate-500 text-sm">
+                            
+                            <div class="lg:col-span-3 flex justify-end gap-3 border-t pt-4">
+                                <button type="button" id="clearAvancadaBtn" class="bg-slate-100 px-6 py-2 rounded-lg hover:bg-slate-200 transition">Limpar</button>
+                                <button type="submit" class="bg-slate-700 text-white px-8 py-2 rounded-lg hover:bg-slate-800 font-bold transition">Pesquisar</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div id="avancadaResultados" class="hidden mt-8 bg-white rounded-xl border shadow-sm overflow-hidden table-responsive">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-50 text-slate-500 uppercase text-xs font-bold border-b">
+                                <tr>
+                                    <th class="px-6 py-4">Data</th>
+                                    <th class="px-6 py-4">Sessão</th>
+                                    <th class="px-6 py-4">Dirigente</th>
+                                    <th class="px-6 py-4">Explanação</th>
+                                    <th class="px-6 py-4">Leitura</th>
+                                </tr>
+                            </thead>
+                            <tbody id="avancadaTableBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                    <div id="consultasSemResultados" class="hidden mt-6 p-12 text-center bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-slate-400">
+                        Nenhum registo corresponde aos critérios de pesquisa.
+                    </div>
+                </section>
+            </div>
+        </main>
     </div>
-{% endblock %}
+
+    <!-- Modal Genérico -->
+    <div id="modal" class="fixed inset-0 z-50 items-center justify-center hidden">
+        <div class="modal-backdrop fixed inset-0 bg-black opacity-60"></div>
+        <div class="bg-white rounded-2xl shadow-2xl m-4 w-full max-w-3xl z-10 overflow-hidden transform transition-all scale-100">
+             <div class="p-8">
+                <div class="flex justify-between items-center border-b pb-4 mb-6">
+                    <h3 id="modalTitle" class="text-2xl font-bold text-slate-800"></h3>
+                    <button id="closeModalBtn" class="text-slate-400 hover:text-red-500 text-4xl leading-none">&times;</button>
+                </div>
+                <div id="modalBody" class="overflow-y-auto max-h-[65vh] pr-2"></div>
+            </div>
+        </div>
+    </div>
+    <div id="toast-container"></div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        let sessoesData = [], estoqueData = [], selectedLotes = [];
+
+        // --- UTILS ---
+        const el = (id) => document.getElementById(id);
+        const notify = (msg, type='success') => {
+            const t = document.createElement('div');
+            t.className = `toast toast-${type} show shadow-2xl font-medium`;
+            t.textContent = msg;
+            el('toast-container').appendChild(t);
+            setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 3500);
+        };
+
+        // --- API ---
+        const loadData = async () => {
+            try {
+                const res = await fetch('/api/dados');
+                const data = await res.json();
+                sessoesData = data.sessoes;
+                estoqueData = data.estoque;
+                render();
+            } catch (e) { notify('Erro de ligação ao servidor.', 'error'); }
+        };
+
+        // --- RENDER ---
+        const render = () => {
+            const search = el('searchMain').value.toLowerCase();
+            
+            // Histórico
+            const sessoesFiltradas = sessoesData.filter(s => {
+                const termo = (s.sessao + s.dirigente + (s.explanacao||'') + (s.leitura_documentos||'')).toLowerCase();
+                return termo.includes(search);
+            });
+
+            el('sessoesTableBody').innerHTML = sessoesFiltradas.map(s => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-6 py-4 font-semibold text-slate-900">${s.sessao}</td>
+                    <td class="px-6 py-4 text-slate-600">${s.data_sessao}</td>
+                    <td class="px-6 py-4 font-medium">${s.dirigente}</td>
+                    <td class="px-6 py-4 text-slate-500">${s.explanacao || '-'}</td>
+                    <td class="px-6 py-4 text-slate-500">${s.leitura_documentos || '-'}</td>
+                    <td class="px-6 py-4 font-bold text-amber-600">${s.litros_consumidos.toFixed(2)} L</td>
+                    <td class="px-6 py-4 text-slate-600">${s.consumo_por_pessoa_ml.toFixed(1)} ml</td>
+                    <td class="px-6 py-4 text-center flex justify-center gap-3">
+                        <button class="del-ses text-red-400 hover:text-red-600 font-bold" data-id="${s.id}">Apagar</button>
+                    </td>
+                </tr>`).join('') || '<tr><td colspan="8" class="p-8 text-center text-slate-400 italic">Sem registos.</td></tr>';
+
+            // Estoque
+            const total = estoqueData.reduce((acc, l) => acc + l.litros_atuais, 0);
+            el('totalStockDisplay').textContent = `${total.toFixed(2)} L`;
+            el('estoqueTableBody').innerHTML = estoqueData.map(l => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-6 py-4 font-bold text-slate-700">${l.id_lote}</td>
+                    <td class="px-6 py-4 text-slate-600">${l.data_preparo}</td>
+                    <td class="px-6 py-4">${l.responsavel}</td>
+                    <td class="px-6 py-4 text-slate-600">${l.litros_iniciais.toFixed(2)} L</td>
+                    <td class="px-6 py-4 font-black text-amber-600">${l.litros_atuais.toFixed(2)} L</td>
+                    <td class="px-6 py-4 text-center flex justify-center gap-3">
+                        <button class="del-lote text-red-400 hover:text-red-600 font-bold" data-id="${l.id}">Apagar</button>
+                    </td>
+                </tr>`).join('') || '<tr><td colspan="6" class="p-8 text-center text-slate-400 italic">Estoque vazio.</td></tr>';
+        };
+
+        // --- NAVEGAÇÃO ---
+        document.querySelectorAll('nav a').forEach(a => {
+            a.addEventListener('click', e => {
+                document.querySelectorAll('nav a').forEach(el => el.classList.remove('tab-active', 'border-transparent'));
+                e.target.classList.add('tab-active');
+                document.querySelectorAll('.view-content').forEach(v => v.classList.add('hidden'));
+                el(e.target.dataset.view + 'View').classList.remove('hidden');
+            });
+        });
+
+        // --- MODAL ---
+        const modal = el('modal');
+        el('closeModalBtn').onclick = () => modal.classList.add('hidden');
+
+        // Form Lote
+        el('openAddLoteBtn').onclick = () => {
+            el('modalTitle').textContent = "Entrada de Vegetal em Estoque";
+            el('modalBody').innerHTML = `
+                <form id="formLote" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div><label class="text-xs font-bold text-slate-400 uppercase">Identificação</label><input type="text" name="id_lote" required class="w-full p-3 border rounded-lg mt-1"></div>
+                        <div><label class="text-xs font-bold text-slate-400 uppercase">Data de Preparo</label><input type="date" name="data_preparo" required class="w-full p-3 border rounded-lg mt-1"></div>
+                        <div><label class="text-xs font-bold text-slate-400 uppercase">Responsável</label><input type="text" name="responsavel" required class="w-full p-3 border rounded-lg mt-1"></div>
+                        <div><label class="text-xs font-bold text-slate-400 uppercase">Litros Iniciais</label><input type="number" step="0.01" name="litros_iniciais" required class="w-full p-3 border rounded-lg mt-1"></div>
+                    </div>
+                    <div><label class="text-xs font-bold text-slate-400 uppercase">Observações</label><textarea name="observacoes" class="w-full p-3 border rounded-lg mt-1 h-24"></textarea></div>
+                    <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-900 shadow-lg transition">Guardar no Estoque</button>
+                </form>`;
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+            
+            el('formLote').onsubmit = async (e) => {
+                e.preventDefault();
+                const res = await fetch('/api/estoque', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(Object.fromEntries(new FormData(e.target)))});
+                const msg = await res.json();
+                if(res.ok) { notify(msg.message); modal.classList.add('hidden'); loadData(); } else { notify(msg.message, 'error'); }
+            };
+        };
+
+        // Form Sessão
+        el('openAddSessaoBtn').onclick = () => {
+            selectedLotes = [];
+            el('modalTitle').textContent = "Registar Nova Sessão";
+            const opts = estoqueData.filter(l => l.litros_atuais > 0).map(l => `<option value="${l.id_lote}" data-max="${l.litros_atuais}">${l.id_lote} (${l.litros_atuais.toFixed(2)}L)</option>`).join('');
+            
+            el('modalBody').innerHTML = `
+                <form id="formSessao" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" name="sessao" placeholder="Nome da Sessão" required class="p-3 border rounded-lg md:col-span-2 font-semibold">
+                        <input type="date" name="data_sessao" required class="p-3 border rounded-lg">
+                        <input type="text" name="dirigente" placeholder="Dirigente" required class="p-3 border rounded-lg">
+                        <input type="text" name="explanacao" placeholder="Explanação" class="p-3 border rounded-lg">
+                        <input type="text" name="leitura_documentos" placeholder="Leitura de Documentos" class="p-3 border rounded-lg">
+                        <input type="number" name="qtd_pessoas" placeholder="Total Pessoas" required class="p-3 border rounded-lg font-bold">
+                        <input type="text" name="responsavel_preenchimento" placeholder="Responsável pelo Registo" required class="p-3 border rounded-lg">
+                        <input type="number" step="0.01" name="litros_finais" placeholder="Retorno de vegetal (L)" required class="p-3 border rounded-lg border-amber-300 bg-amber-50">
+                    </div>
+                    <div class="p-5 bg-slate-100 rounded-2xl border border-slate-200">
+                        <h4 class="text-xs font-black text-slate-500 uppercase mb-3 tracking-widest">Vegetal Utilizado</h4>
+                        <div id="lotesList" class="space-y-2 mb-4"></div>
+                        <div class="flex gap-2">
+                            <select id="selLote" class="flex-1 p-3 border rounded-lg bg-white">${opts}</select>
+                            <input type="number" id="selQtd" step="0.01" placeholder="Qtd L" class="w-24 p-3 border rounded-lg bg-white">
+                            <button type="button" id="addLoteItem" class="bg-amber-500 text-white px-6 rounded-lg font-bold shadow-sm">+</button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 p-3 bg-white rounded-lg border">
+                        <input type="checkbox" id="chkRet" name="registrar_retorno" class="w-5 h-5 accent-amber-500">
+                        <label for="chkRet" class="text-sm font-medium">Reintroduzir retorno no estoque como novo lote</label>
+                    </div>
+                    <input type="text" id="idRet" name="id_lote_retorno" placeholder="ID do novo lote de retorno" class="hidden w-full p-3 border rounded-lg">
+                    <button type="submit" class="w-full bg-amber-500 text-white py-4 rounded-xl font-black text-lg shadow-xl hover:bg-amber-600 transition">Concluir Registo da Sessão</button>
+                </form>`;
+            m.classList.remove('hidden'); m.classList.add('flex');
+
+            el('chkRet').onchange = (e) => el('idRet').classList.toggle('hidden', !e.target.checked);
+
+            el('addLoteItem').onclick = () => {
+                const s = el('selLote'), q = el('selQtd');
+                if(!s.value || !q.value || q.value <= 0) return;
+                selectedLotes.push({ id: s.value, qtd: parseFloat(q.value) });
+                document.getElementById('lotesList').innerHTML = selectedLotes.map((l, i) => `
+                    <div class="flex justify-between items-center bg-white p-3 rounded-lg border shadow-sm">
+                        <span class="font-bold text-slate-700">${l.id}: <span class="text-amber-600">${l.qtd} L</span></span>
+                        <button type="button" class="text-red-500 text-xs font-bold uppercase" onclick="selectedLotes.splice(${i}, 1); this.parentElement.remove();">Remover</button>
+                    </div>`).join('');
+                q.value = "";
+            };
+
+            document.getElementById('formSessao').onsubmit = async (e) => {
+                e.preventDefault();
+                if(selectedLotes.length === 0) return notify('Adicione o vegetal utilizado!', 'error');
+                const fd = new FormData(e.target);
+                const obj = Object.fromEntries(fd.entries());
+                obj.registrar_retorno = el('chkRet').checked;
+                obj.lotes_utilizados = selectedLotes.map(l => `${l.id}:${l.qtd}`).join('|');
+                obj.litros_iniciais = selectedLotes.reduce((acc, l) => acc + l.qtd, 0);
+                obj.litros_consumidos = obj.litros_iniciais - parseFloat(obj.litros_finais);
+                obj.consumo_por_pessoa_ml = (obj.litros_consumidos * 1000) / parseInt(obj.qtd_pessoas);
+
+                const res = await fetch('/api/sessoes', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(obj)});
+                const msg = await res.json();
+                if(res.ok) { notify('Sessão registada!'); m.classList.add('hidden'); loadData(); } else { notify(msg.message, 'error'); }
+            };
+        };
+
+        // --- RELATÓRIOS ---
+        el('relatorioForm').onsubmit = (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const ini = fd.get('data_inicio') ? new Date(fd.get('data_inicio')) : null;
+            const fim = fd.get('data_fim') ? new Date(fd.get('data_fim')) : null;
+            
+            const counts = {};
+            sessoesData.forEach(s => {
+                const ds = new Date(s.data_sessao.split('/').reverse().join('-'));
+                if((!ini || ds >= ini) && (!fim || ds <= fim)) {
+                    counts[s.dirigente] = (counts[s.dirigente] || 0) + 1;
+                }
+            });
+            
+            const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+            el('relatorioTableBody').innerHTML = sorted.length 
+                ? sorted.map(r => `<tr class="hover:bg-slate-50"><td class="px-6 py-4 font-medium">${r[0]}</td><td class="px-6 py-4 text-right font-black text-amber-600">${r[1]}</td></tr>`).join('') 
+                : '<tr><td colspan="2" class="p-8 text-center text-slate-400 italic">Sem dados para este período.</td></tr>';
+            el('relatorioResultados').classList.remove('hidden');
+        };
+
+        el('clearRelatorioBtn').onclick = () => {
+            el('relatorioForm').reset();
+            el('relatorioResultados').classList.add('hidden');
+        };
+
+        // --- PESQUISA AVANÇADA ---
+        el('avancadaForm').onsubmit = (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const ses = (fd.get('sessao')||'').toLowerCase();
+            const dir = (fd.get('dirigente')||'').toLowerCase();
+            const exp = (fd.get('explanacao')||'').toLowerCase();
+            const lei = (fd.get('leitura')||'').toLowerCase();
+            const ini = fd.get('data_ini') ? new Date(fd.get('data_ini')) : null;
+            const fim = fd.get('data_fim') ? new Date(fd.get('data_fim')) : null;
+
+            const res = sessoesData.filter(s => {
+                const ds = new Date(s.data_sessao.split('/').reverse().join('-'));
+                const matchFields = 
+                    (!ses || (s.sessao||'').toLowerCase().includes(ses)) &&
+                    (!dir || (s.dirigente||'').toLowerCase().includes(dir)) &&
+                    (!exp || (s.explanacao||'').toLowerCase().includes(exp)) &&
+                    (!lei || (s.leitura_documentos||'').toLowerCase().includes(lei));
+                const matchDate = (!ini || ds >= ini) && (!fim || ds <= fim);
+                return matchFields && matchDate;
+            });
+
+            el('avancadaTableBody').innerHTML = res.map(s => `
+                <tr class="hover:bg-slate-50 border-b">
+                    <td class="px-6 py-4 font-bold text-slate-800">${s.data_sessao}</td>
+                    <td class="px-6 py-4 text-slate-600">${s.sessao}</td>
+                    <td class="px-6 py-4">${s.dirigente}</td>
+                    <td class="px-6 py-4 text-slate-500">${s.explanacao||'-'}</td>
+                    <td class="px-6 py-4 text-slate-500">${s.leitura_documentos||'-'}</td>
+                </tr>`).join('');
+            
+            el('avancadaResultados').classList.toggle('hidden', res.length === 0);
+            el('consultasSemResultados').classList.toggle('hidden', res.length > 0);
+        };
+
+        el('clearAvancadaBtn').onclick = () => {
+            el('avancadaForm').reset();
+            el('avancadaResultados').classList.add('hidden');
+            el('consultasSemResultados').classList.add('hidden');
+        };
+
+        // --- AÇÕES GLOBAIS ---
+        document.body.addEventListener('click', async e => {
+            const id = e.target.dataset.id;
+            if(e.target.classList.contains('del-ses') && confirm('Apagar registo?')) {
+                const res = await fetch(`/api/sessoes/${id}`, { method: 'DELETE' });
+                if(res.ok) { notify('Registo apagado.'); loadData(); }
+            }
+            if(e.target.classList.contains('del-lote') && confirm('Apagar lote?')) {
+                const res = await fetch(`/api/estoque/${id}`, { method: 'DELETE' });
+                if(res.ok) { notify('Apagado.'); loadData(); }
+            }
+        });
+
+        el('searchMain').oninput = render;
+
+        // INICIAR
+        loadData();
+    });
+    </script>
+</body>
+</html>

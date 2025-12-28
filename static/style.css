@@ -1,59 +1,84 @@
-/* Reset básico e configurações de fonte */
+/* --- GERAL E LAYOUT --- */
 body {
-    font-family: 'Inter', sans-serif;
-    margin: 0;
-    background-color: #f4f7f6;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f4f4f9;
     color: #333;
+    margin: 0;
     line-height: 1.6;
 }
 
-/* Container principal */
-main {
+.container {
+    width: 90%;
     max-width: 1200px;
     margin: 20px auto;
     padding: 20px;
     background-color: #fff;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 
-/* Cabeçalho e Navegação */
-header {
-    background-color: #2c3e50;
-    color: #ecf0f1;
-    padding: 1rem 0;
-    text-align: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+h1, h2, h3 {
+    color: #2c3e50;
 }
 
-header h1 {
-    margin: 0;
-    font-size: 2rem;
-}
-
-nav a {
-    color: #ecf0f1;
+a {
+    color: #3498db;
     text-decoration: none;
-    margin: 0 15px;
-    font-size: 1.1rem;
-    padding: 5px 10px;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* --- BARRA DE NAVEGAÇÃO --- */
+.navbar {
+    background-color: #2c3e50;
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #fff;
+}
+
+.navbar .logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.navbar .nav-links {
+    list-style: none;
+    display: flex;
+    margin: 0;
+    padding: 0;
+}
+
+.navbar .nav-links li {
+    margin-left: 20px;
+}
+
+.navbar .nav-links a {
+    color: #fff;
+    padding: 8px 12px;
     border-radius: 5px;
     transition: background-color 0.3s;
 }
 
-nav a:hover {
+.navbar .nav-links a:hover {
     background-color: #34495e;
+    text-decoration: none;
 }
 
-/* Títulos das secções */
-h2 {
-    color: #2c3e50;
-    border-bottom: 2px solid #3498db;
-    padding-bottom: 10px;
-    margin-bottom: 20px;
+.navbar .user-info {
+    font-size: 0.9rem;
 }
 
-/* Estilo da Tabela */
+.navbar .user-info a {
+    color: #f39c12;
+    margin-left: 10px;
+}
+
+/* --- TABELAS --- */
 .table-container {
     overflow-x: auto;
 }
@@ -70,208 +95,235 @@ th, td {
     border-bottom: 1px solid #ddd;
 }
 
-thead th {
-    background-color: #3498db;
-    color: white;
-    font-weight: 500;
+th {
+    background-color: #ecf0f1;
+    font-weight: bold;
 }
 
-tbody tr:nth-of-type(even) {
+tbody tr:nth-child(even) {
     background-color: #f9f9f9;
 }
 
 tbody tr:hover {
-    background-color: #ecf0f1;
+    background-color: #f1f1f1;
 }
 
-table th:nth-child(2),
-table td:nth-child(2) {
-    min-width: 220px;
-    word-break: keep-all;
+/* Largura da coluna "ID da Sessão" */
+table th:nth-child(2), table td:nth-child(2) {
+    min-width: 200px; 
 }
 
-.actions-cell {
-    display: flex;
-    gap: 5px;
-    align-items: center;
-}
 
-.actions-cell form {
-    margin: 0;
-}
-
-/* Estilo do Formulário */
+/* --- FORMULÁRIOS --- */
 .form-container {
-    max-width: 600px;
-    margin: 0 auto;
+    max-width: 700px;
+    margin: auto;
 }
 
 .form-group {
-    margin-bottom: 15px;
+    margin-bottom: 20px;
 }
 
 .form-group label {
     display: block;
     margin-bottom: 5px;
-    font-weight: 500;
+    font-weight: bold;
 }
 
 .form-group input[type="text"],
-.form-group input[type="number"],
 .form-group input[type="date"],
-.form-group select {
+.form-group input[type="number"],
+.form-group input[type="password"],
+.form-group select,
+.form-group textarea {
     width: 100%;
     padding: 10px;
+    border-radius: 5px;
     border: 1px solid #ccc;
-    border-radius: 5px;
-    box-sizing: border-box;
-    background-color: white;
+    box-sizing: border-box; /* Garante que padding não afete a largura total */
 }
 
-.form-group button {
-    width: 100%;
-    padding: 12px;
-    background-color: #27ae60;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    font-size: 1.1rem;
-    cursor: pointer;
-    transition: background-color 0.3s;
+textarea {
+    resize: vertical;
+    min-height: 80px;
 }
 
-.form-group button:hover {
-    background-color: #229954;
-}
-
-/* Botões genéricos e de ações */
+/* --- BOTÕES --- */
 .btn {
     display: inline-block;
-    padding: 8px 12px;
-    border-radius: 5px;
-    text-decoration: none;
-    color: white;
-    font-size: 0.9rem;
-    text-align: center;
+    padding: 10px 20px;
+    background-color: #2c3e50;
+    color: #fff;
     border: none;
+    border-radius: 5px;
     cursor: pointer;
-    transition: opacity 0.3s;
+    font-size: 1rem;
+    transition: background-color 0.3s;
+    text-align: center;
 }
 
 .btn:hover {
-    opacity: 0.8;
-}
-
-.btn-edit {
-    background-color: #f39c12; /* Laranja */
-}
-
-.btn-delete {
-    background-color: #c0392b; /* Vermelho */
+    background-color: #34495e;
 }
 
 .btn-add {
-    background-color: #3498db; /* Azul */
-    width: 100%;
-}
-
-/* Mensagens de Feedback (Flash Messages) */
-.flash-messages {
-    padding: 0;
-    margin: 0;
-    list-style: none;
-}
-
-.flash {
-    padding: 15px 20px;
-    text-align: center;
-    color: #fff;
-    font-weight: 500;
-    margin: 0;
-}
-
-.flash.success {
     background-color: #27ae60;
 }
+.btn-add:hover {
+    background-color: #229954;
+}
 
-.flash.error {
+.btn-edit {
+    background-color: #f39c12;
+    padding: 5px 10px;
+    font-size: 0.9rem;
+    color: #fff;
+}
+.btn-edit:hover {
+    background-color: #d68910;
+}
+
+.btn-delete {
     background-color: #c0392b;
+    padding: 5px 10px;
+    font-size: 0.9rem;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+.btn-delete:hover {
+    background-color: #a93226;
 }
 
-/* Estilos para a página de Consultas e Inventário */
-.query-form, .add-lote-section {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
-    align-items: end;
-    margin-bottom: 40px;
+.actions-cell {
+    display: flex;
+    gap: 10px;
 }
 
-.results-container {
-    margin-top: 30px;
-    padding: 20px;
-    background-color: #f9f9f9;
-    border: 1px solid #ddd;
+
+/* --- MENSAGENS DE FEEDBACK (FLASH) --- */
+.flash-messages {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px 0;
+}
+
+.flash-messages li {
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+    text-align: center;
+}
+
+.flash-success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.flash-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.flash-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+/* --- PÁGINA DE LOGIN --- */
+.login-container {
+    max-width: 400px;
+    margin: 50px auto;
+    padding: 30px;
+    background-color: #fff;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
     border-radius: 8px;
 }
 
-.results-container h3 {
-    margin-top: 0;
-    color: #2c3e50;
-}
-
-.result-summary {
-    font-size: 1.2rem;
-    font-weight: 500;
-    color: #2980b9;
-}
-
-.header-with-button {
+/* --- PÁGINA DE CONSULTAS E ESTOQUE --- */
+.page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-bottom: 2px solid #ecf0f1;
+    padding-bottom: 10px;
     margin-bottom: 20px;
 }
 
-.header-with-button h2 {
-    margin: 0;
-    border-bottom: none;
-}
-
-.inventory-total {
-    font-size: 1.5rem;
-    font-weight: 500;
-    color: #2c3e50;
-    margin: 0;
-}
-
-.inventory-total strong {
-    color: #27ae60;
-}
-
-.litros-atuais {
-    font-weight: bold;
-    color: #27ae60;
-}
-
-.section-divider {
-    margin: 40px 0;
-    border: 0;
-    border-top: 1px solid #ddd;
-}
-
-.info-note {
-    background-color: #eaf2f8;
-    border-left: 5px solid #3498db;
-    padding: 15px;
-    margin-bottom: 20px;
-    border-radius: 5px;
-}
-
-/* Rodapé */
-footer {
-    text-align: center;
+.query-form, .inventory-form {
+    background-color: #f9f9f9;
     padding: 20px;
-    margin-top: 30px;
-    color: #777;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.totalizer {
+    background-color: #ecf0f1;
+    padding: 10px 20px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.totalizer h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #7f8c8d;
+}
+
+.totalizer p {
+    margin: 5px 0 0 0;
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+/* --- FORMULÁRIO DE ADICIONAR SESSÃO (LOTES) --- */
+.lote-selector, .selected-lotes {
+    background-color: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+.selected-lotes ul {
+    list-style: none;
+    padding-left: 0;
+}
+.selected-lotes li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+.selected-lotes li button {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    padding: 3px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+/* --- ESTILOS PARA O FORMULÁRIO DE RETORNO --- */
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+.checkbox-group label {
+    margin: 0;
+    font-weight: normal;
 }

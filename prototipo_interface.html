@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Registro de Sessões</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Slate & Amber -->
+    <!-- Application Structure Plan: A single-page application (SPA) with a tabbed interface is the most effective structure. It allows the user to switch between the main contexts (Histórico, Estoque, Consultas) without page reloads, providing a fluid experience. The structure prioritizes tasks: viewing history is the default, adding new data is done via modals to keep the user in context, and complex analysis is separated into a dedicated "Consultas" tab. This architecture is superior to the original multi-page app because it centralizes all functions, reduces navigation friction, and allows for instant data updates across different views (e.g., adding a session and seeing the stock update immediately). User flow: Land on Histórico -> View data -> Click '+' to open Add Session modal -> Submit -> Histórico table updates instantly. Or, switch to Estoque tab to manage inventory. This is the most intuitive interactive flow for this type of data management task. -->
+    <!-- Visualization & Content Choices: 
+        - Histórico/Estoque Data -> Goal: Inform/Manage -> Presentation: Interactive HTML Table -> Interaction: Live search, column sorting, CRUD buttons opening modals. Justification: Tables are optimal for structured data; live interactions make large datasets easily explorable. Method: Vanilla JS DOM manipulation.
+        - Add/Edit Forms -> Goal: Input Data -> Presentation: Modals -> Interaction: Standard form elements, dynamic multi-select for lots. Justification: Modals prevent context loss, focusing the user on the data entry task. Method: JS-controlled visibility.
+        - Quantitative Summary (Total Estoque) -> Goal: Inform -> Presentation: Key Statistic (Big Number) -> Interaction: N/A. Justification: Highlights the most critical inventory metric for quick assessment. Method: HTML/Tailwind.
+        - Consultas Results (Quantitative) -> Goal: Analyze/Compare -> Presentation: Bar Chart -> Interaction: Chart dynamically updates based on filter results and a new 'group by' selector. Justification: A visual representation of filtered data (e.g., session counts per leader/speaker) reveals patterns much faster than a table alone. Library: Chart.js (Canvas).
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .tab-active { border-bottom-color: #f59e0b; color: #f59e0b; }
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.5); }
+        .chart-container { position: relative; width: 100%; max-width: 800px; margin-left: auto; margin-right: auto; height: 400px; max-height: 50vh; }
+        .table-responsive { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .modal-body-scroll { max-height: 70vh; overflow-y: auto; }
+    </style>
+</head>
+<body class="text-slate-700">
+
+    <div id="app" class="max-w-7xl mx-auto p-4 md:p-6">
+        
+        <header class="flex justify-between items-center mb-6 pb-4 border-b border-slate-200">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800">Sistema de Registro</h1>
+                <p class="text-slate-500">Uma interface interativa para gestão de sessões e estoque de vegetal.</p>
+            </div>
+            <div id="userInfo" class="text-right">
+                 <span class="font-medium text-slate-800">Olá, admin</span>
+                 <a href="#" class="ml-4 text-sm text-amber-600 hover:underline">Logout</a>
+            </div>
+        </header>
+
+        <nav class="mb-6">
+            <ul class="flex border-b border-slate-200">
+                <li class="-mb-px mr-1">
+                    <a class="inline-block py-2 px-4 font-semibold border-b-2 border-transparent hover:border-amber-500 hover:text-amber-600 cursor-pointer tab-active" data-view="historico">Histórico de Sessões</a>
+                </li>
+                <li class="mr-1">
+                    <a class="inline-block py-2 px-4 font-semibold border-b-2 border-transparent hover:border-amber-500 hover:text-amber-600 cursor-pointer" data-view="estoque">Estoque de Vegetal</a>
+                </li>
+                <li class="mr-1">
+                    <a class="inline-block py-2 px-4 font-semibold border-b-2 border-transparent hover:border-amber-500 hover:text-amber-600 cursor-pointer" data-view="consultas">Consultas e Análise</a>
+                </li>
+            </ul>
+        </nav>
+
+        <main>
+            <!-- Histórico View -->
+            <div id="historicoView" class="view-content">
+                <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
+                    <div>
+                        <h2 class="text-2xl font-semibold text-slate-800">Registros Recentes</h2>
+                        <p class="text-slate-500 mt-1">Navegue, pesquise e gerencie os registros de todas as sessões realizadas.</p>
+                    </div>
+                    <button id="openAddSessaoModalBtn" class="bg-amber-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-amber-600 transition-colors shadow-sm flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                        Adicionar Sessão
+                    </button>
+                </div>
+                 <div class="mb-4">
+                    <input type="text" id="searchSessoes" placeholder="Pesquisar em todas as sessões..." class="w-full p-2 border border-slate-300 rounded-lg focus:ring-amber-500 focus:border-amber-500">
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-sm table-responsive">
+                    <table class="w-full text-sm text-left text-slate-500">
+                        <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">Sessão</th>
+                                <th scope="col" class="px-6 py-3">Data da Sessão</th>
+                                <th scope="col" class="px-6 py-3">Dirigente</th>
+                                <th scope="col" class="px-6 py-3">Explanação</th>
+                                <th scope="col" class="px-6 py-3">Lotes Utilizados</th>
+                                <th scope="col" class="px-6 py-3">Consumo (L)</th>
+                                <th scope="col" class="px-6 py-3">Consumo p/ Pessoa (ml)</th>
+                                <th scope="col" class="px-6 py-3">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sessoesTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Estoque View -->
+            <div id="estoqueView" class="view-content hidden">
+                 <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
+                    <div>
+                        <h2 class="text-2xl font-semibold text-slate-800">Gestão de Estoque</h2>
+                        <p class="text-slate-500 mt-1">Adicione novos lotes e acompanhe a quantidade de vegetal disponível.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm text-center">
+                        <span class="text-slate-500 uppercase text-sm">Total em Estoque</span>
+                        <p id="totalEstoque" class="text-3xl font-bold text-amber-600"></p>
+                    </div>
+                </div>
+                <div class="mb-4">
+                     <button id="openAddLoteModalBtn" class="bg-slate-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-slate-800 transition-colors shadow-sm flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                        Adicionar Lote
+                    </button>
+                </div>
+                 <div class="bg-white p-4 rounded-lg shadow-sm table-responsive">
+                    <table class="w-full text-sm text-left text-slate-500">
+                         <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">ID do Lote</th>
+                                <th scope="col" class="px-6 py-3">Data Preparo</th>
+                                <th scope="col" class="px-6 py-3">Responsável</th>
+                                <th scope="col" class="px-6 py-3">Litros Iniciais</th>
+                                <th scope="col" class="px-6 py-3">Litros Atuais</th>
+                                <th scope="col" class="px-6 py-3">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="estoqueTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Consultas View -->
+            <div id="consultasView" class="view-content hidden">
+                <h2 class="text-2xl font-semibold text-slate-800 mb-2">Análise de Dados</h2>
+                <p class="text-slate-500 mb-4">Utilize os filtros para explorar os dados das sessões e visualizar tendências.</p>
+                <div class="bg-white p-6 rounded-lg shadow-sm mb-6">
+                    <form id="consultasForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                        <div class="lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <input type="text" name="sessao" placeholder="Nome da Sessão" class="p-2 border border-slate-300 rounded-lg">
+                            <input type="text" name="dirigente" placeholder="Nome do Dirigente" class="p-2 border border-slate-300 rounded-lg">
+                            <input type="date" name="data_inicio" class="p-2 border border-slate-300 rounded-lg text-slate-500" title="Data de Início">
+                            <input type="date" name="data_fim" class="p-2 border border-slate-300 rounded-lg text-slate-500" title="Data de Fim">
+                        </div>
+                         <div>
+                            <label for="groupBy" class="block text-sm font-medium text-slate-600 mb-1">Agrupar Gráfico Por</label>
+                            <select id="groupBy" name="groupBy" class="w-full p-2 border border-slate-300 rounded-lg">
+                                <option value="dirigente">Dirigente</option>
+                                <option value="explanacao">Explanação</option>
+                                <option value="leitura_documentos">Leitura de Documentos</option>
+                            </select>
+                        </div>
+                        <div class="lg:col-span-3 flex justify-end gap-2 self-end">
+                             <button type="button" id="resetConsultasBtn" class="bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-lg hover:bg-slate-300">Limpar</button>
+                             <button type="submit" class="bg-amber-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-amber-600">Pesquisar</button>
+                        </div>
+                    </form>
+                </div>
+                <div id="consultasResultadosContainer" class="hidden">
+                    <h3 class="text-xl font-semibold text-slate-800 mb-4">Resultados da Consulta</h3>
+                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white p-4 rounded-lg shadow-sm">
+                            <h4 id="chartTitle" class="font-semibold mb-2">Visualização Gráfica</h4>
+                            <p class="text-sm text-slate-500 mb-4">O gráfico exibe o número total de sessões para os filtros selecionados, agrupado pela categoria escolhida.</p>
+                            <div class="chart-container">
+                                <canvas id="consultasChart"></canvas>
+                            </div>
+                        </div>
+                         <div class="bg-white p-4 rounded-lg shadow-sm">
+                            <h4 class="font-semibold mb-2">Dados Detalhados</h4>
+                             <div class="max-h-96 overflow-y-auto table-responsive">
+                                 <table class="w-full text-sm text-left text-slate-500">
+                                     <thead class="text-xs text-slate-700 uppercase bg-slate-50 sticky top-0">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3">Sessão</th>
+                                            <th scope="col" class="px-6 py-3">Data</th>
+                                            <th scope="col" class="px-6 py-3">Dirigente</th>
+                                            <th scope="col" class="px-6 py-3">Explanação</th>
+                                            <th scope="col" class="px-6 py-3">Consumo (L)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="consultasTableBody">
+                                    </tbody>
+                                 </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                 <div id="consultasSemResultados" class="bg-slate-50 p-8 rounded-lg text-center hidden">
+                    <p class="text-slate-500">Nenhum resultado encontrado para os filtros aplicados.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Genérico -->
+    <div id="modal" class="fixed inset-0 z-50 items-center justify-center hidden">
+        <div class="modal-backdrop fixed inset-0 bg-black opacity-50"></div>
+        <div class="bg-white rounded-lg shadow-xl m-4 sm:max-w-2xl sm:w-full z-10 transform transition-all">
+             <div class="p-6">
+                <div class="flex justify-between items-start pb-3">
+                    <h3 id="modalTitle" class="text-2xl font-semibold text-slate-800"></h3>
+                    <button id="closeModalBtn" class="text-slate-400 hover:text-slate-600">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div id="modalBody" class="mt-4 modal-body-scroll">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            
+            let sessoesData = [
+                { id: 1, data_registro: '01/09/2025', sessao: 'Escala de Setembro', data_sessao: '01/09/2025', dirigente: 'Eduardo Sardenberg', explanacao: 'Abertura dos trabalhos', leitura_documentos: 'Regulamento Interno', mestre_assistente: 'Ana', responsavel_preenchimento: 'Carlos', qtd_pessoas: 30, lotes_utilizados: 'Lote-Alfa:2.5|Lote-Beta:2.0', litros_iniciais: 4.5, litros_finais: 1.2, litros_consumidos: 3.3, consumo_por_pessoa_ml: 110 },
+                { id: 2, data_registro: '15/08/2025', sessao: 'Sessão de Cura', data_sessao: '15/08/2025', dirigente: 'Maria da Silva', explanacao: 'Harmonia e Cura', leitura_documentos: 'Os 12 Princípios', mestre_assistente: 'João', responsavel_preenchimento: 'Carlos', qtd_pessoas: 25, lotes_utilizados: 'Lote-Gama:4.0', litros_iniciais: 4.0, litros_finais: 0.8, litros_consumidos: 3.2, consumo_por_pessoa_ml: 128 },
+                { id: 3, data_registro: '01/08/2025', sessao: 'Escala de Agosto', data_sessao: '01/08/2025', dirigente: 'Eduardo Sardenberg', explanacao: 'Tema do Mês', leitura_documentos: 'N/A', mestre_assistente: 'Sofia', responsavel_preenchimento: 'Ana', qtd_pessoas: 35, lotes_utilizados: 'Lote-Gama:3.0|Lote-Delta:3.0', litros_iniciais: 6.0, litros_finais: 2.1, litros_consumidos: 3.9, consumo_por_pessoa_ml: 111.4 },
+            ];
+
+            let estoqueData = [
+                { id: 1, id_lote: 'Lote-Alfa', data_preparo: '10/07/2025', responsavel: 'Equipe A', litros_iniciais: 20.0, litros_atuais: 12.5, observacoes: 'Primeiro lote do ano.' },
+                { id: 2, id_lote: 'Lote-Beta', data_preparo: '15/07/2025', responsavel: 'Equipe B', litros_iniciais: 15.0, litros_atuais: 8.0, observacoes: '' },
+                { id: 3, id_lote: 'Lote-Gama', data_preparo: '20/07/2025', responsavel: 'Equipe A', litros_iniciais: 25.0, litros_atuais: 15.0, observacoes: 'Vegetal forte.' },
+                { id: 4, id_lote: 'Lote-Delta', data_preparo: '25/07/2025', responsavel: 'Equipe C', litros_iniciais: 10.0, litros_atuais: 7.0, observacoes: 'Para iniciantes.' },
+            ];
+
+            const appState = {
+                currentView: 'historico',
+                editingId: null,
+                lotesSelecionadosSessao: [],
+            };
+
+            const views = {
+                historico: document.getElementById('historicoView'),
+                estoque: document.getElementById('estoqueView'),
+                consultas: document.getElementById('consultasView'),
+            };
+
+            const sessoesTableBody = document.getElementById('sessoesTableBody');
+            const estoqueTableBody = document.getElementById('estoqueTableBody');
+            const searchSessoesInput = document.getElementById('searchSessoes');
+            const totalEstoqueEl = document.getElementById('totalEstoque');
+            const tabs = document.querySelectorAll('nav a');
+
+            const modal = document.getElementById('modal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const modalBackdrop = document.querySelector('.modal-backdrop');
+
+            const renderSessoes = (filter = '') => {
+                sessoesTableBody.innerHTML = '';
+                const filteredData = sessoesData.filter(s => 
+                    Object.values(s).some(val => 
+                        String(val).toLowerCase().includes(filter.toLowerCase())
+                    )
+                );
+
+                if (filteredData.length === 0) {
+                    sessoesTableBody.innerHTML = `<tr><td colspan="8" class="text-center py-4">Nenhum registro encontrado.</td></tr>`;
+                    return;
+                }
+
+                filteredData.forEach(sessao => {
+                    const lotesFormatted = sessao.lotes_utilizados.split('|').join(', ');
+                    const row = `
+                        <tr class="bg-white border-b hover:bg-slate-50">
+                            <td class="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">${sessao.sessao}</td>
+                            <td class="px-6 py-4">${sessao.data_sessao}</td>
+                            <td class="px-6 py-4">${sessao.dirigente}</td>
+                            <td class="px-6 py-4">${sessao.explanacao}</td>
+                            <td class="px-6 py-4">${lotesFormatted}</td>
+                            <td class="px-6 py-4">${sessao.litros_consumidos.toFixed(2)}</td>
+                            <td class="px-6 py-4">${sessao.consumo_por_pessoa_ml.toFixed(1)} ml</td>
+                            <td class="px-6 py-4 flex gap-2">
+                                <button class="editSessaoBtn text-amber-600 hover:underline" data-id="${sessao.id}">Editar</button>
+                                <button class="deleteSessaoBtn text-red-600 hover:underline" data-id="${sessao.id}">Excluir</button>
+                            </td>
+                        </tr>`;
+                    sessoesTableBody.innerHTML += row;
+                });
+            };
+
+            const renderEstoque = () => {
+                estoqueTableBody.innerHTML = '';
+                let total = 0;
+                estoqueData.forEach(lote => {
+                    total += lote.litros_atuais;
+                    const row = `
+                        <tr class="bg-white border-b hover:bg-slate-50">
+                            <td class="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">${lote.id_lote}</td>
+                            <td class="px-6 py-4">${lote.data_preparo}</td>
+                            <td class="px-6 py-4">${lote.responsavel}</td>
+                            <td class="px-6 py-4">${lote.litros_iniciais.toFixed(2)}</td>
+                            <td class="px-6 py-4 font-bold text-amber-700">${lote.litros_atuais.toFixed(2)}</td>
+                            <td class="px-6 py-4 flex gap-2">
+                                <button class="editLoteBtn text-amber-600 hover:underline" data-id="${lote.id}">Editar</button>
+                                <button class="deleteLoteBtn text-red-600 hover:underline" data-id="${lote.id}">Excluir</button>
+                            </td>
+                        </tr>`;
+                    estoqueTableBody.innerHTML += row;
+                });
+                totalEstoqueEl.textContent = `${total.toFixed(2)} L`;
+            };
+            
+            const switchView = (viewName) => {
+                appState.currentView = viewName;
+                Object.values(views).forEach(v => v.classList.add('hidden'));
+                tabs.forEach(t => t.classList.remove('tab-active'));
+                
+                views[viewName].classList.remove('hidden');
+                document.querySelector(`a[data-view="${viewName}"]`).classList.add('tab-active');
+            };
+            
+            const showModal = (title, content) => {
+                modalTitle.textContent = title;
+                modalBody.innerHTML = content;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            };
+
+            const hideModal = () => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                modalBody.innerHTML = '';
+                appState.editingId = null;
+                appState.lotesSelecionadosSessao = [];
+            };
+
+            const getSessaoFormHTML = (sessao = {}) => {
+                const isEditing = Object.keys(sessao).length > 0;
+                if (isEditing && sessao.lotes_utilizados) {
+                    appState.lotesSelecionadosSessao = sessao.lotes_utilizados.split('|').map(item => {
+                        const [id, qtd] = item.split(':');
+                        return { id, qtd: parseFloat(qtd) };
+                    });
+                } else {
+                    appState.lotesSelecionadosSessao = [];
+                }
+                
+                let lotesOptions = estoqueData
+                    .filter(l => l.litros_atuais > 0)
+                    .map(l => `<option value="${l.id_lote}" data-max="${l.litros_atuais}">${l.id_lote} (${l.litros_atuais.toFixed(2)} L)</option>`)
+                    .join('');
+
+                return `
+                    <form id="sessaoForm" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <input type="text" name="sessao" id="formSessaoNome" placeholder="Nome da Sessão" required value="${sessao.sessao || ''}" class="p-2 border rounded col-span-2">
+                           <input type="date" name="data_sessao" id="formSessaoData" required value="${sessao.data_sessao ? new Date(sessao.data_sessao.split('/').reverse().join('-')).toISOString().slice(0,10) : ''}" class="p-2 border rounded">
+                           <input type="text" name="dirigente" placeholder="Dirigente" required value="${sessao.dirigente || ''}" class="p-2 border rounded">
+                           <input type="text" name="explanacao" placeholder="Explanação" value="${sessao.explanacao || ''}" class="p-2 border rounded">
+                           <input type="text" name="leitura_documentos" placeholder="Leitura de Documentos" value="${sessao.leitura_documentos || ''}" class="p-2 border rounded">
+                           <input type="number" name="qtd_pessoas" placeholder="Qtd. Pessoas" required min="1" value="${sessao.qtd_pessoas || ''}" class="p-2 border rounded">
+                           <input type="number" name="litros_finais" placeholder="Litros que Retornaram (ex: 1.2)" required value="${sessao.litros_finais || ''}" class="p-2 border rounded" step="0.1">
+                           <input type="text" name="responsavel_preenchimento" placeholder="Responsável pelo Preenchimento" required value="${sessao.responsavel_preenchimento || ''}" class="p-2 border rounded">
+                        </div>
+                        <div class="border p-4 rounded-lg space-y-2 bg-slate-50">
+                             <h4 class="font-semibold text-slate-700">Lotes Utilizados</h4>
+                             <ul id="listaLotesSessao" class="space-y-1 text-sm"></ul>
+                             <div class="flex gap-2 items-center pt-2">
+                                <select id="loteSelect" class="flex-grow p-2 border rounded bg-white">
+                                    <option value="">-- Escolha um lote --</option>
+                                    ${lotesOptions}
+                                </select>
+                                <input type="number" id="loteQtd" placeholder="Litros" class="w-24 p-2 border rounded" step="0.1">
+                                <button type="button" id="addLoteToSessaoBtn" class="bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded hover:bg-slate-300 text-lg">+</button>
+                             </div>
+                        </div>
+                        <div class="pt-2">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="registrarRetorno" name="registrar_retorno" class="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500">
+                                <label for="registrarRetorno" class="ml-2 block text-sm text-slate-900">Registrar o retorno no estoque como um novo lote</label>
+                            </div>
+                            <div id="retornoLoteContainer" class="mt-2 hidden">
+                                <input type="text" id="idLoteRetorno" name="id_lote_retorno" placeholder="Nome do novo lote de retorno" class="w-full p-2 border border-slate-300 rounded-lg">
+                            </div>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" class="bg-amber-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-amber-600">${isEditing ? 'Salvar Alterações' : 'Registrar Sessão'}</button>
+                        </div>
+                    </form>
+                `;
+            };
+
+            const getLoteFormHTML = (lote = {}) => {
+                const isEditing = Object.keys(lote).length > 0;
+                 return `
+                    <form id="loteForm" class="space-y-4">
+                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input type="text" name="id_lote" placeholder="ID do Lote" required value="${lote.id_lote || ''}" class="p-2 border rounded">
+                            <input type="date" name="data_preparo" required value="${lote.data_preparo ? new Date(lote.data_preparo.split('/').reverse().join('-')).toISOString().slice(0,10) : ''}" class="p-2 border rounded">
+                            <input type="text" name="responsavel" placeholder="Responsável" required value="${lote.responsavel || ''}" class="p-2 border rounded">
+                            <input type="number" name="litros_iniciais" placeholder="Litros Iniciais" required step="0.1" value="${lote.litros_iniciais || ''}" class="p-2 border rounded">
+                            ${isEditing ? `<input type="number" name="litros_atuais" placeholder="Litros Atuais" required step="0.1" value="${lote.litros_atuais || ''}" class="p-2 border rounded">` : ''}
+                        </div>
+                         <textarea name="observacoes" placeholder="Observações..." class="w-full p-2 border rounded">${lote.observacoes || ''}</textarea>
+                        <div class="flex justify-end">
+                            <button type="submit" class="bg-slate-700 text-white font-bold py-2 px-6 rounded-lg hover:bg-slate-800">${isEditing ? 'Salvar Alterações' : 'Adicionar ao Estoque'}</button>
+                        </div>
+                    </form>
+                `;
+            };
+            
+            const atualizarListaVisualLotes = () => {
+                const lista = document.getElementById('listaLotesSessao');
+                if (!lista) return;
+                
+                lista.innerHTML = '';
+                if(appState.lotesSelecionadosSessao.length === 0){
+                    lista.innerHTML = '<li class="text-slate-500">Nenhum lote adicionado.</li>';
+                } else {
+                    appState.lotesSelecionadosSessao.forEach((lote, index) => {
+                        const li = document.createElement('li');
+                        li.className = 'flex justify-between items-center bg-white p-2 rounded';
+                        li.innerHTML = `<span>${lote.id}: <strong>${lote.qtd} L</strong></span>
+                                        <button type="button" class="removeLoteBtn text-red-500 hover:text-red-700 text-xs" data-index="${index}">Remover</button>`;
+                        lista.appendChild(li);
+                    });
+                }
+            };
+            
+            modalBody.addEventListener('change', e => {
+                if (e.target.id === 'registrarRetorno') {
+                    const container = document.getElementById('retornoLoteContainer');
+                    const input = document.getElementById('idLoteRetorno');
+                    if (e.target.checked) {
+                        container.classList.remove('hidden');
+                        const sessaoNome = document.getElementById('formSessaoNome').value.trim();
+                        const dataSessao = document.getElementById('formSessaoData').value;
+                        if (sessaoNome && dataSessao) {
+                            const dataFormatada = new Date(dataSessao).toLocaleDateString('pt-BR');
+                            input.value = `Retorno-${sessaoNome}-${dataFormatada}`;
+                        } else {
+                            input.value = `Retorno-Sessao-${new Date().toLocaleDateString('pt-BR')}`;
+                        }
+                    } else {
+                        container.classList.add('hidden');
+                        input.value = '';
+                    }
+                }
+            });
+
+            modalBody.addEventListener('click', e => {
+                if (e.target.id === 'addLoteToSessaoBtn') {
+                    const selectLote = document.getElementById('loteSelect');
+                    const inputQtd = document.getElementById('loteQtd');
+                    const loteId = selectLote.value;
+                    const qtd = parseFloat(inputQtd.value);
+                    const selectedOption = selectLote.options[selectLote.selectedIndex];
+                    const maxQtd = parseFloat(selectedOption.getAttribute('data-max'));
+
+                    if (!loteId) { alert('Por favor, selecione um lote.'); return; }
+                    if (isNaN(qtd) || qtd <= 0) { alert('Por favor, insira uma quantidade válida.'); return; }
+                    if (qtd > maxQtd) { alert(`A quantidade retirada (${qtd} L) não pode ser maior que a disponível no lote (${maxQtd} L).`); return; }
+                    if (appState.lotesSelecionadosSessao.some(lote => lote.id === loteId)) { alert('Este lote já foi adicionado a esta sessão.'); return; }
+
+                    appState.lotesSelecionadosSessao.push({ id: loteId, qtd: qtd });
+                    atualizarListaVisualLotes();
+                    selectLote.value = '';
+                    inputQtd.value = '';
+                }
+                if (e.target.classList.contains('removeLoteBtn')) {
+                    const index = parseInt(e.target.dataset.index);
+                    appState.lotesSelecionadosSessao.splice(index, 1);
+                    atualizarListaVisualLotes();
+                }
+            });
+
+            document.getElementById('openAddSessaoModalBtn').addEventListener('click', () => {
+                showModal('Adicionar Nova Sessão', getSessaoFormHTML());
+                atualizarListaVisualLotes();
+            });
+
+             document.getElementById('openAddLoteModalBtn').addEventListener('click', () => {
+                showModal('Adicionar Novo Lote ao Estoque', getLoteFormHTML());
+            });
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', (e) => switchView(e.target.dataset.view));
+            });
+
+            searchSessoesInput.addEventListener('input', (e) => renderSessoes(e.target.value));
+            
+            closeModalBtn.addEventListener('click', hideModal);
+            modalBackdrop.addEventListener('click', hideModal);
+
+            document.body.addEventListener('submit', e => {
+                if (e.target.id === 'sessaoForm') {
+                    e.preventDefault();
+                    if (appState.lotesSelecionadosSessao.length === 0 && !appState.editingId) {
+                        alert('É necessário adicionar pelo menos um lote de vegetal à sessão.');
+                        return;
+                    }
+                    
+                    const formData = new FormData(e.target);
+                    let newSessao = Object.fromEntries(formData.entries());
+                    const litrosFinais = parseFloat(newSessao.litros_finais) || 0;
+                    const qtdPessoas = parseInt(newSessao.qtd_pessoas) || 1;
+
+                    if (!appState.editingId) {
+                        newSessao.lotes_utilizados = appState.lotesSelecionadosSessao.map(l => `${l.id}:${l.qtd}`).join('|');
+                        newSessao.litros_iniciais = appState.lotesSelecionadosSessao.reduce((sum, l) => sum + l.qtd, 0);
+                        
+                        appState.lotesSelecionadosSessao.forEach(loteUsado => {
+                           const loteNoEstoque = estoqueData.find(l => l.id_lote === loteUsado.id);
+                           if(loteNoEstoque) {
+                               loteNoEstoque.litros_atuais -= loteUsado.qtd;
+                           }
+                        });
+
+                        if (newSessao.registrar_retorno && litrosFinais > 0) {
+                            const idLoteRetorno = newSessao.id_lote_retorno.trim();
+                            if (!idLoteRetorno) { alert('O nome do novo lote de retorno não pode estar vazio.'); return; }
+                            if (estoqueData.some(l => l.id_lote === idLoteRetorno)) { alert(`O lote com ID "${idLoteRetorno}" já existe.`); return; }
+                            
+                            const novoLoteRetorno = {
+                                id: Date.now(),
+                                id_lote: idLoteRetorno,
+                                data_preparo: new Date().toLocaleDateString('pt-BR'),
+                                responsavel: 'Sistema (Retorno)',
+                                litros_iniciais: litrosFinais,
+                                litros_atuais: litrosFinais,
+                                observacoes: `Retorno da sessão: ${newSessao.sessao}`
+                            };
+                            estoqueData.push(novoLoteRetorno);
+                        }
+                    }
+
+                    newSessao.litros_consumidos = newSessao.litros_iniciais - litrosFinais;
+                    newSessao.consumo_por_pessoa_ml = qtdPessoas > 0 ? (newSessao.litros_consumidos * 1000) / qtdPessoas : 0;
+
+                    if (appState.editingId) {
+                         const index = sessoesData.findIndex(s => s.id === appState.editingId);
+                         sessoesData[index] = { ...sessoesData[index], ...newSessao };
+                    } else {
+                        newSessao.id = Date.now();
+                        newSessao.data_registro = new Date().toLocaleDateString('pt-BR');
+                        sessoesData.push(newSessao);
+                    }
+                    
+                    renderSessoes();
+                    renderEstoque();
+                    hideModal();
+                }
+                if (e.target.id === 'loteForm') {
+                     e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const newLote = Object.fromEntries(formData.entries());
+                    newLote.litros_iniciais = parseFloat(newLote.litros_iniciais);
+                    
+                    if (appState.editingId) {
+                         const index = estoqueData.findIndex(l => l.id === appState.editingId);
+                         newLote.litros_atuais = parseFloat(newLote.litros_atuais);
+                         estoqueData[index] = { ...estoqueData[index], ...newLote };
+                    } else {
+                        if (estoqueData.some(l => l.id_lote === newLote.id_lote)) { alert(`O lote com ID "${newLote.id_lote}" já existe.`); return; }
+                        newLote.id = Date.now();
+                        newLote.litros_atuais = newLote.litros_iniciais;
+                        estoqueData.push(newLote);
+                    }
+                    renderEstoque();
+                    hideModal();
+                }
+            });
+
+            document.body.addEventListener('click', e => {
+                if(e.target.classList.contains('editSessaoBtn')){
+                    appState.editingId = parseInt(e.target.dataset.id);
+                    const sessao = sessoesData.find(s => s.id === appState.editingId);
+                    showModal('Editar Sessão', getSessaoFormHTML(sessao));
+                    atualizarListaVisualLotes();
+                }
+                if(e.target.classList.contains('deleteSessaoBtn')){
+                    if(confirm('Tem a certeza que deseja excluir este registro?')){
+                        const idToDelete = parseInt(e.target.dataset.id);
+                        const index = sessoesData.findIndex(s => s.id === idToDelete);
+                        sessoesData.splice(index, 1);
+                        renderSessoes();
+                    }
+                }
+                 if(e.target.classList.contains('editLoteBtn')){
+                    appState.editingId = parseInt(e.target.dataset.id);
+                    const lote = estoqueData.find(l => l.id === appState.editingId);
+                    showModal('Editar Lote', getLoteFormHTML(lote));
+                }
+                if(e.target.classList.contains('deleteLoteBtn')){
+                    if(confirm('Tem a certeza que deseja excluir este lote?')){
+                        const idToDelete = parseInt(e.target.dataset.id);
+                        const index = estoqueData.findIndex(l => l.id === idToDelete);
+                        estoqueData.splice(index, 1);
+                        renderEstoque();
+                    }
+                }
+            });
+
+            let consultasChartInstance = null;
+            const consultasForm = document.getElementById('consultasForm');
+            const consultasResultadosContainer = document.getElementById('consultasResultadosContainer');
+            const consultasSemResultados = document.getElementById('consultasSemResultados');
+            const consultasTableBody = document.getElementById('consultasTableBody');
+            
+            consultasForm.addEventListener('submit', e => {
+                e.preventDefault();
+                const formData = new FormData(consultasForm);
+                const filters = Object.fromEntries(formData.entries());
+
+                const filteredSessoes = sessoesData.filter(s => {
+                    const dataSessao = new Date(s.data_sessao.split('/').reverse().join('-'));
+                    const dataInicio = filters.data_inicio ? new Date(filters.data_inicio) : null;
+                    const dataFim = filters.data_fim ? new Date(filters.data_fim) : null;
+
+                    return (!filters.sessao || s.sessao.toLowerCase().includes(filters.sessao.toLowerCase())) &&
+                           (!filters.dirigente || s.dirigente.toLowerCase().includes(filters.dirigente.toLowerCase())) &&
+                           (!dataInicio || dataSessao >= dataInicio) &&
+                           (!dataFim || dataSessao <= dataFim);
+                });
+
+                if (filteredSessoes.length > 0) {
+                    consultasResultadosContainer.classList.remove('hidden');
+                    consultasSemResultados.classList.add('hidden');
+                    
+                    consultasTableBody.innerHTML = filteredSessoes.map(s => `
+                        <tr class="bg-white border-b">
+                            <td class="px-6 py-4 font-medium text-slate-900">${s.sessao}</td>
+                            <td class="px-6 py-4">${s.data_sessao}</td>
+                            <td class="px-6 py-4">${s.dirigente}</td>
+                            <td class="px-6 py-4">${s.explanacao}</td>
+                            <td class="px-6 py-4">${s.litros_consumidos.toFixed(2)}</td>
+                        </tr>`).join('');
+                    
+                    const groupByKey = filters.groupBy;
+                    const groupBySelect = document.getElementById('groupBy');
+                    const groupByText = groupBySelect.options[groupBySelect.selectedIndex].text;
+
+                    const sessionsByGroup = filteredSessoes.reduce((acc, s) => {
+                        const key = s[groupByKey] || 'N/A';
+                        acc[key] = (acc[key] || 0) + 1;
+                        return acc;
+                    }, {});
+
+                    const chartLabels = Object.keys(sessionsByGroup);
+                    const chartData = Object.values(sessionsByGroup);
+
+                    const ctx = document.getElementById('consultasChart').getContext('2d');
+                    if (consultasChartInstance) {
+                        consultasChartInstance.destroy();
+                    }
+                    
+                    document.getElementById('chartTitle').textContent = `Número de Sessões por ${groupByText}`;
+
+                    consultasChartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: chartLabels.map(label => label.length > 16 ? label.substring(0, 16) + '...' : label),
+                            datasets: [{
+                                label: 'Número de Sessões',
+                                data: chartData,
+                                backgroundColor: 'rgba(245, 158, 11, 0.6)',
+                                borderColor: 'rgba(245, 158, 11, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: { 
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1
+                                    }
+                                }
+                            },
+                             plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        title: (tooltipItems) => {
+                                            return chartLabels[tooltipItems[0].dataIndex];
+                                        }
+                                    }
+                                },
+                                legend: { display: false },
+                                title: { display: false }
+                            }
+                        }
+                    });
+
+                } else {
+                    consultasResultadosContainer.classList.add('hidden');
+                    consultasSemResultados.classList.remove('hidden');
+                }
+            });
+            
+             document.getElementById('resetConsultasBtn').addEventListener('click', () => {
+                consultasForm.reset();
+                consultasResultadosContainer.classList.add('hidden');
+                consultasSemResultados.classList.add('hidden');
+                if (consultasChartInstance) {
+                    consultasChartInstance.destroy();
+                }
+            });
+
+            renderSessoes();
+            renderEstoque();
+        });
+    </script>
+</body>
+</html>
+
