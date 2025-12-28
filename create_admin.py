@@ -3,24 +3,22 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 
-# --- CÓDIGO COPIADO DO SEU app.py ---
-# É necessário para que o script entenda a estrutura da tabela de utilizadores.
-
+# --- CONFIGURAÇÃO MÍNIMA DA APP ---
 app = Flask(__name__)
 bcrypt = Bcrypt(app)
 
-# --- O SEU URL DE CONEXÃO EXTERNA FOI INSERIDO AQUI ---
-DATABASE_URL = "postgresql://banco_de_dados_sessoes_user:36ZuTYZIT345nVy8jJyrg9aIkVmEQbUi@dpg-d2ki313uibrs73e7f2pg-a.oregon-postgres.render.com/banco_de_dados_sessoes"
+# --- O SEU URL DA RENDER (Já com aspas e corrigido) ---
+DATABASE_URL = "postgresql://meu_banco_de_dados_ndes_user:cnPWQ7RzntxkPePLpjXfaDVttYngyLPF@dpg-d589ebbe5dus73dplk6g-a.oregon-postgres.render.com/meu_banco_de_dados_ndes"
 
-# --- CORREÇÃO APLICADA AQUI ---
-# A verificação agora aceita "postgresql://"
-if "postgres" not in DATABASE_URL:
-    raise ValueError("Por favor, cole a sua 'External Connection String' da Render na variável DATABASE_URL.")
+# Garante compatibilidade do URL (caso venha como postgres://)
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+# --- MODELO DE UTILIZADOR (Para saber onde criar) ---
 class Utilizador(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
@@ -29,29 +27,44 @@ class Utilizador(db.Model):
     def set_password(self, password):
         self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
 
-# --- FUNÇÃO PRINCIPAL PARA CRIAR O UTILIZADOR ---
+# --- FUNÇÃO DE CRIAÇÃO ---
 def criar_primeiro_utilizador():
-    with app.app_context():
-        # Cria as tabelas se ainda não existirem no banco de dados remoto
-        db.create_all()
+    print("Conectando ao banco de dados na Render...")
+    try:
+        with app.app_context():
+            # Cria as tabelas se não existirem
+            db.create_all()
 
-        # Verifica se já existe algum utilizador
-        if Utilizador.query.count() > 0:
-            print("Pelo menos um utilizador já existe. Nenhum novo utilizador foi criado.")
-            return
+            # Verifica se já existe
+            if Utilizador.query.first():
+                print("AVISO: Já existem utilizadores registrados neste banco de dados.")
+                continuar = input("Deseja criar outro? (s/n): ")
+                if continuar.lower() != 's':
+                    return
 
-        print("A criar o primeiro utilizador administrador...")
-        username = input("Introduza o nome de utilizador desejado: ")
-        password = input("Introduza a palavra-passe desejada: ")
+            username = input("Introduza o nome de utilizador: ")
+            password = input("Introduza a palavra-passe: ")
 
-        new_user = Utilizador(username=username)
-        new_user.set_password(password)
-        
-        db.session.add(new_user)
-        db.session.commit()
-        
-        print(f"Utilizador '{username}' criado com sucesso no banco de dados da Render!")
-        print("Pode agora fazer login na sua aplicação online.")
+            # Verifica duplicado específico
+            if Utilizador.query.filter_by(username=username).first():
+                print("Erro: Este utilizador já existe.")
+                return
+
+            new_user = Utilizador(username=username)
+            new_user.set_password(password)
+            
+            db.session.add(new_user)
+            db.session.commit()
+            
+            print("---------------------------------------------------")
+            print(f"SUCESSO! Utilizador '{username}' criado no banco de dados da Render.")
+            print("Agora pode fazer login no seu site online.")
+            print("---------------------------------------------------")
+
+    except Exception as e:
+        print(f"ERRO DE CONEXÃO: {e}")
+        print("Verifique se o seu IP está autorizado na Render ou se o URL está correto.")
 
 if __name__ == '__main__':
     criar_primeiro_utilizador()
+

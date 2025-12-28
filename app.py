@@ -7,7 +7,7 @@ from flask_bcrypt import Bcrypt
 
 # --- CONFIGURAÇÃO DA APLICAÇÃO ---
 app = Flask(__name__)
-# Em produção, substitua esta chave por uma string aleatória longa e secreta
+# Em produção, deve usar uma chave secreta complexa definida nas variáveis de ambiente
 app.secret_key = 'chave_secreta_segura_para_sessao_app_final'
 bcrypt = Bcrypt(app)
 
